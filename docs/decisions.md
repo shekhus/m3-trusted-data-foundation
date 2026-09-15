@@ -169,3 +169,18 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
     - **Report SQL edited:** 0.
   - **Next time:** a field that becomes required from a date is one YAML file plus `make revalidate`.
 
+### D-026 · 2026-09-15 · Knowledge base chunked at section level; tables atomic; frontmatter on every chunk except the generator's challenge labels
+
+- **Decision:** `retrieval/chunker.py` splits each `data/kb/docs/*.md` on markdown headings into one chunk per section, labelled `Title > Section > Subsection`. The text between the title and the first section (a version or SUPERSEDED banner) is its own chunk.
+  - A section over 350 words splits only between paragraphs. A table is always one block; if a table itself exceeds the budget, it is cut into row groups that each repeat the header and separator rows.
+  - Every chunk carries the document's validated frontmatter: doc_id, title, doc_type, version, effective_date, status, access_level, plant, supersedes, superseded_by, audience. Frontmatter is parsed with a Pydantic model, unknown keys are rejected, and the doc_id must match the file name.
+  - The frontmatter key `challenges` is dropped because it names the test a document was written for, and indexing it would leak the answer key into retrieval.
+  - Each of the 93 prior resolutions becomes one chunk (pattern, classification, resolution, who and when), open to all roles and tagged with its plant, because Q100–Q104 are answered from them.
+  - `retrieval/index.py` writes `data/index/chunks.jsonl` plus a manifest (corpus sha256, chunker version, counts). The build is deterministic, and `load` refuses an index whose corpus or chunker changed. `make index` needs no database and no API key.
+- **Alternatives:**
+  - Fixed-size token windows: they cut tables from their header rows and split MD-001's version history (Q091) from its heading.
+  - Whole documents: this is the probe's naive baseline, and C8 near-duplicates share boilerplate at document level.
+  - Indexing the frontmatter as searchable text.
+  - Storing chunks in Postgres now: no consumer needs SQL access yet, and the embedding store is decided in A15.
+- **Reason:** addendum A14 and CLAUDE.md retrieval conventions ("chunk at markdown section level; never split a table from its header row; every chunk carries doc_id, version, status, access_level, plant, effective_date"). **Verified (`tests/test_chunker.py`, real corpus):** 26 documents and 93 resolutions give 208 chunks, and metadata matches its source frontmatter (superseded, expired, plant and restricted cases). Every table piece in every chunk starts with its source header row and separator. No chunk carries the challenge labels. The largest section is 143 words, so no real section needs splitting; the split rules are exercised on constructed documents (40-row table at a 60-word budget: header repeated, every row once, in order). For every golden question with an expected document (30+), all required answer terms sit in one chunk of an expected document. Rebuilding gives byte-identical output, and an edited corpus is refused as stale.
+
