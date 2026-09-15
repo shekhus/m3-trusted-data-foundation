@@ -1,8 +1,9 @@
-"""FastAPI entry point. Routers (ingest, mappings, exceptions) are added as their weeks land."""
+"""FastAPI entry point: every router, `/healthz`, and `/` redirecting to the interactive API docs."""
 
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 
 from app.routers import agent, drift, exceptions, ingest, lineage, mappings, ops, publish, reconcile, sources
 
@@ -17,6 +18,12 @@ app.include_router(publish.router)
 app.include_router(reconcile.router)
 app.include_router(agent.router)
 app.include_router(ops.router)
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    """The bare URL is not an endpoint: send people to the interactive docs instead of a 404."""
+    return RedirectResponse("/docs")
 
 
 @app.get("/healthz")
