@@ -466,6 +466,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", default="m3tdf_report_eval")
     parser.add_argument("--no-retrieval", action="store_true", help="skip retrieval (needs VOYAGE_API_KEY)")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="exit 1 if any evaluation run now fails (CI); saved model results never fail the run",
+    )
     args = parser.parse_args()
     settings = get_settings()
     try:
@@ -521,6 +526,10 @@ def main() -> int:
     report = REPO_ROOT / "evals" / "REPORT.md"
     report.write_text(render(results), encoding="utf-8", newline="\n")
     print(f"wrote {out.relative_to(REPO_ROOT).as_posix()} and {report.relative_to(REPO_ROOT).as_posix()}")
+    failed_now = [s["title"] for s in sections if s["status"] == "fail" and s["source"] == "run"]
+    if args.strict and failed_now:
+        print(f"eval: failing evaluations run now: {'; '.join(failed_now)}", file=sys.stderr)
+        return 1
     return 0
 
 
