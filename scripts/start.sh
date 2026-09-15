@@ -8,5 +8,7 @@ if [ "${APP_ROLE:-api}" = "portal" ]; then
 fi
 python scripts/migrate.py
 python scripts/build_index.py || echo "start: knowledge-base index sync failed; the API starts without it"
-# HOST defaults to IPv4 (docker port mapping); set HOST=:: where the private network is IPv6 (Railway).
-exec uvicorn app.main:app --host "${HOST:-0.0.0.0}" --port "${PORT:-8000}"
+# An empty host binds every interface, IPv4 and IPv6: docker's IPv4 port mapping, Railway's IPv4 public edge
+# and its IPv6 private network all reach the API ("::" alone is IPv6-only, "0.0.0.0" IPv4-only). Set HOST to
+# narrow it.
+exec uvicorn app.main:app --host "${HOST:-}" --port "${PORT:-8000}"
