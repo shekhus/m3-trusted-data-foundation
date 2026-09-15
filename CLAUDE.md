@@ -150,6 +150,6 @@ Windows: run via Git Bash, or use `python scripts/<name>.py` equivalents listed 
 
 See `docs/plan.md` week table and `docs/decisions.md`. Update the line below at the end of each session:
 
-`STATUS: week 1 — tasks 1-4 done (scaffold; synth imported, deterministic, answer key locked; Postgres migrations for bronze/silver/gold/ops + six ops tables, applied on container start). Docker verified; profiler → docs/findings.md checked against ground truth. Week 1 definition of done met. Next: week 2 — metric dictionary + compiler, heuristic mapper.`
+`STATUS: week 2 — task 5 done (metric dictionary: otif v3/v2 + fill_rate v1 YAML compiled to gold views, reproduces generator series and legacy tool OTIF). Week 1 complete (tasks 1-4). Next: task 6 heuristic mapper + ops.mapping_versions propose/confirm; task 7 LLM mapper; task 8 PLT-01 silver + portal.`
 
 Plan is now SIX weeks: weeks 1-4 as originally scoped, week 5 retrieval (A14-A18), week 6 the exception agent (A13). See `docs/addendum1.md`.

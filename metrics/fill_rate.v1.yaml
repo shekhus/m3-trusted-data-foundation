@@ -1,0 +1,19 @@
+metric: fill_rate
+version: 1
+status: current
+owner: supply_chain_analytics
+changed_by: data_governance
+effective_from: 2025-03-01
+grain: order_line
+source: gold.fact_delivery
+key: [order_no, line_no]
+period: issue_date
+dimensions: [plant, customer_no, item_no, product_group, order_type]
+aggregations:
+  lines: "count(*)"
+  fill_rate_count: "sum(invoiced_qty) / sum(ordered_qty)"
+  fill_rate_weight: "sum(invoiced_weight_lb) / sum(ordered_weight_lb)"
+  ordered_weight_lb: "sum(ordered_weight_lb)"
+notes: >-
+  Ratio of totals, not an average of line ratios, so large lines weigh more. Undefined (null) when the
+  denominator is zero.
