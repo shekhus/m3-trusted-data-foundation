@@ -150,6 +150,6 @@ Windows: run via Git Bash, or use `python scripts/<name>.py` equivalents listed 
 
 See `docs/plan.md` week table and `docs/decisions.md`. Update the line below at the end of each session:
 
-`STATUS: week 2 — task 5 done (metric dictionary: otif v3/v2 + fill_rate v1 YAML compiled to gold views, reproduces generator series and legacy tool OTIF). Week 1 complete (tasks 1-4). Next: task 6 heuristic mapper + ops.mapping_versions propose/confirm; task 7 LLM mapper; task 8 PLT-01 silver + portal.`
+`STATUS: week 2 — tasks 5-6 done (metric dictionary compiled to gold views; heuristic mapper + per-header ops.mapping_versions propose/confirm API, owner-only confirm; mapping eval: answer-key 100%, unseen headers 64.3%). Next: task 7 LLM mapper (Anthropic key in .env works but the account has no credit), task 8 PLT-01 silver + portal.`
 
 Plan is now SIX weeks: weeks 1-4 as originally scoped, week 5 retrieval (A14-A18), week 6 the exception agent (A13). See `docs/addendum1.md`.

@@ -31,6 +31,9 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       DATA_DIR: data
       SOURCE_SLA_HOURS: ${SOURCE_SLA_HOURS:-72}
+    volumes:
+      # generated extracts + masters, read-only (data/ is excluded from the image by .dockerignore)
+      - ./data:/app/data:ro
     ports:
       - "8000:8000"
     healthcheck:

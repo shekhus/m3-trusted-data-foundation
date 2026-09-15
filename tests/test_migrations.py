@@ -138,11 +138,12 @@ def test_exception_rows_enforce_queue_contract(engine: Engine) -> None:
 
 
 @pytest.mark.postgres
-def test_only_one_confirmed_mapping_per_source(engine: Engine) -> None:
+def test_one_confirmed_mapping_per_source_header(engine: Engine) -> None:
     insert = text("INSERT INTO ops.mapping_versions (source, version, mapping, proposed_by, status, "
-                  "confirmed_by, confirmed_at) "
-                  "VALUES ('plt02', :v, '{}', 'heuristic', 'confirmed', 'owner', now())")
+                  "confirmed_by, confirmed_at, header, header_hash) "
+                  "VALUES ('plt02', :v, '{}', 'heuristic', 'confirmed', 'owner', now(), '[]', :h)")
     with engine.begin() as conn:
-        conn.execute(insert, {"v": 1})
+        conn.execute(insert, {"v": 1, "h": "a" * 64})
+        conn.execute(insert, {"v": 2, "h": "b" * 64})  # a second header of the same source may be confirmed
     with pytest.raises(IntegrityError), engine.begin() as conn:
-        conn.execute(insert, {"v": 2})
+        conn.execute(insert, {"v": 3, "h": "a" * 64})

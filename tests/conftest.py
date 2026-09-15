@@ -8,6 +8,9 @@ import pytest
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 
+from app.config import REPO_ROOT
+from pipeline.profile import SourceProfile, profile_all
+
 # Compose defaults (docker-compose.yml). Override with TEST_DATABASE_URL.
 DEFAULT_PG_URL = "postgresql+psycopg://m3:m3@localhost:5432/m3tdf"
 
@@ -52,3 +55,12 @@ def pg_url(pg_admin: Engine) -> Iterator[str]:
         with admin.connect() as conn:
             conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
         admin.dispose()
+
+
+@pytest.fixture(scope="session")
+def generated_profiles() -> dict[str, SourceProfile]:
+    """Profiles of the generated sources, computed once per test session."""
+    data = REPO_ROOT / "data"
+    if not (data / "sources").is_dir() or not (data / "ground_truth").is_dir():
+        pytest.skip("data/ not generated (run `make synth`)")
+    return {p.source: p for p in profile_all(data / "sources", data / "master")}

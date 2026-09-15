@@ -1,4 +1,4 @@
-.PHONY: synth probe profile metrics name-check up down logs migrate api test lint
+.PHONY: synth probe profile metrics eval-mapping name-check up down logs migrate api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
@@ -14,6 +14,9 @@ profile:              ## profile data/sources -> docs/findings.md + docs/finding
 
 metrics:              ## compile metrics/*.yaml -> metrics/compiled/*.sql and create the views (needs DATABASE_URL)
 	$(PY) scripts/compile_metrics.py --apply
+
+eval-mapping:         ## score mapping proposers against ground truth -> evals/results/mapping_<date>.json
+	$(PY) scripts/eval_mapping.py
 
 name-check:           ## company-name collision checklist (before publishing)
 	$(PY) scripts/check_company_name.py

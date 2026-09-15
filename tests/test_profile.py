@@ -16,7 +16,6 @@ from pipeline.profile import (
     _header_variants,
     _shape,
     load_masters,
-    profile_all,
     profile_source,
     render_markdown,
 )
@@ -108,10 +107,8 @@ def test_profile_source_small_extract(tmp_path: Path) -> None:
 
 
 @pytest.fixture(scope="module")
-def profiles() -> dict[str, SourceProfile]:
-    if not (DATA / "sources").is_dir() or not (DATA / "ground_truth").is_dir():
-        pytest.skip("data/ not generated (run `make synth`)")
-    return {p.source: p for p in profile_all(DATA / "sources", DATA / "master")}
+def profiles(generated_profiles: dict[str, SourceProfile]) -> dict[str, SourceProfile]:
+    return generated_profiles
 
 
 @pytest.fixture(scope="module")

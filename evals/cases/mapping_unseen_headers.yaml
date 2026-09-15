@@ -1,0 +1,22 @@
+# Generalisation case for the mapper (docs/decisions.md D-013).
+# PLT-01's real data under column names the heuristic vocabulary was NOT written against: generic ERP-style
+# names a new plant might send. Values, types and units are untouched; only the header changes.
+# The expected canonical column comes from ground_truth/mappings.json via `renamed_from`.
+case: mapping_unseen_headers
+source: plt01
+header_variant: 0
+rename:
+  ord_no: SalesDocument
+  ln: ItemPosition
+  cust_no: SoldToParty
+  itm_no: MaterialNumber
+  fac: ShippingPoint
+  ord_dt: CreatedOn
+  req_dt: WantedDeliveryDate
+  cfm_dlv_dt: CommittedDate
+  iss_dt: GoodsIssueDate
+  ord_qty: OrderQuantity
+  inv_qty: BilledQuantity
+  ord_wt: GrossWeight
+  inv_wt: BilledWeight
+  uom_cd: SalesUnit

@@ -15,6 +15,7 @@ import math
 import re
 from dataclasses import dataclass
 from datetime import date
+from functools import lru_cache
 from itertools import combinations
 from pathlib import Path
 from typing import Literal
@@ -385,6 +386,17 @@ def findings(p: SourceProfile) -> list[str]:
         out.append(f"{n} rows are exact duplicates of an earlier row." if n > 1
                    else "1 row is an exact duplicate of an earlier row.")
     return out
+
+
+@lru_cache(maxsize=32)
+def _profile_cached(source: str, stats: tuple[tuple[str, int, int], ...], master_dir: str) -> SourceProfile:
+    return profile_source(source, [Path(s[0]) for s in stats], load_masters(Path(master_dir)))
+
+
+def profile_source_cached(source: str, files: list[Path], master_dir: Path) -> SourceProfile:
+    """Profile once per unchanged file set: the cache key is every file's path, size and mtime."""
+    stats = tuple((str(f), f.stat().st_size, f.stat().st_mtime_ns) for f in sorted(files))
+    return _profile_cached(source, stats, str(master_dir))
 
 
 def discover_sources(sources_dir: Path) -> dict[str, list[Path]]:
