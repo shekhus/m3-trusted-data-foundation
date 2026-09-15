@@ -11,6 +11,7 @@ that works in PowerShell, CMD, or Git Bash from the repo root. Add a row here wh
 | `make metrics` | `.venv\Scripts\python scripts/compile_metrics.py --apply` (drop `--apply` to compile without a database) |
 | `make eval-mapping` | `.venv\Scripts\python scripts/eval_mapping.py` (add `--llm` to also score the LLM mapper; paid calls) |
 | `make silver SRC=plt01` | `.venv\Scripts\python scripts/build_silver.py plt01` |
+| `make eval-exceptions` | `.venv\Scripts\python scripts/eval_exceptions.py` |
 | `make portal` | `.venv\Scripts\python -m streamlit run portal/app.py` (or `make up` for the portal container) |
 | `make name-check` | `.venv\Scripts\python scripts/check_company_name.py` |
 | `make up` | `docker compose up -d --build` |

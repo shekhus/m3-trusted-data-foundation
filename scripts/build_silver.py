@@ -1,4 +1,4 @@
-"""Ingest a source's files to bronze and, where the header has a confirmed mapping, to silver.
+"""Ingest a source's files to bronze and, where the header has a confirmed mapping, to validated silver.
 
 Equivalent of `make silver SRC=plt01`. Re-running is safe: an unchanged file returns its original batch, and a
 previously blocked batch is mapped once its header's mapping has been confirmed.
@@ -38,10 +38,11 @@ def main() -> int:
     engine = create_engine(settings.database_url)
     blocked = 0
     for path in files:
-        r = ingest_file(engine, args.source, path)
+        r = ingest_file(engine, args.source, path, settings.data_dir / "master")
         blocked += r.status == "blocked"
         note = " (replayed)" if r.replayed else ""
-        counts = f"{r.silver_rows} silver, {r.parse_errors} parse errors"
+        counts = (f"{r.silver_rows} silver, {r.blocking_exceptions} blocking and "
+                  f"{r.warning_exceptions} warning exceptions")
         detail = r.error if r.status == "blocked" else counts
         print(f"{r.file_name}: {r.status}{note} - {r.rows} rows; {detail}")
     engine.dispose()

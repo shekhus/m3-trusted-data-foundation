@@ -129,8 +129,9 @@ async def upload(source: str, request: Request, _: Annotated[Principal, Proposer
 def build(source: str, _: Annotated[Principal, Proposer],
           settings: Annotated[Settings, Depends(get_settings)],
           engine: Annotated[Engine, Depends(get_engine)]) -> list[BatchResult]:
-    """Ingest every file of the source: bronze always, silver where the header has a confirmed mapping."""
-    return [ingest_file(engine, source, f) for f in _files(settings, source)]
+    """Ingest every file: bronze always; silver + validation where the header has a confirmed mapping."""
+    master_dir = settings.data_dir / "master"
+    return [ingest_file(engine, source, f, master_dir) for f in _files(settings, source)]
 
 
 @router.get("/sources/{source}/batches", response_model=list[Batch])

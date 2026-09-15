@@ -1,20 +1,16 @@
 from __future__ import annotations
 
 import json
-import uuid
-from collections.abc import Iterator
-from dataclasses import dataclass
 
 import pandas as pd
 import pytest
-from sqlalchemy import Engine, create_engine, text
+from conftest import Loaded
+from sqlalchemy import Engine, text
 
 from app.config import REPO_ROOT
-from db.migrate import migrate
 from pipeline.canonical import BY_NAME
-from pipeline.ingest import BatchResult, ingest_file
-from pipeline.mapper.heuristic import propose
-from pipeline.profile import SourceProfile, discover_sources
+from pipeline.ingest import ingest_file
+from pipeline.profile import discover_sources
 from pipeline.transforms import apply
 
 DATA = REPO_ROOT / "data"
@@ -49,65 +45,13 @@ def test_transforms_parse_convert_and_report_errors() -> None:
 # --- Postgres + generated data ---------------------------------------------------------
 
 
-@pytest.fixture(scope="module")
-def silver_db(pg_admin: Engine, generated_profiles: dict[str, SourceProfile]) -> Iterator[Engine]:
-    name = f"m3tdf_test_{uuid.uuid4().hex[:12]}"
-    with pg_admin.connect() as conn:
-        conn.execute(text(f'CREATE DATABASE "{name}"'))
-    url = pg_admin.url.set(database=name).render_as_string(hide_password=False)
-    engine = create_engine(url)
-    try:
-        migrate(url)
-        yield engine
-    finally:
-        engine.dispose()
-        with pg_admin.connect() as conn:
-            conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
-
-
-def _confirm(engine: Engine, profile: SourceProfile, header: list[str]) -> None:
-    proposal = propose(profile, header)
-    with engine.begin() as conn:
-        conn.execute(text(
-            "INSERT INTO ops.mapping_versions (source, version, mapping, proposed_by, status, confirmed_by, "
-            "confirmed_at, header, header_hash) SELECT :s, COALESCE(MAX(version), 0) + 1, CAST(:m AS jsonb), "
-            "'heuristic', 'confirmed', 'owner', now(), CAST(:hdr AS jsonb), :h FROM ops.mapping_versions "
-            "WHERE source = :s"),
-            {"s": profile.source, "m": json.dumps({"columns": [c.model_dump() for c in proposal.columns]}),
-             "hdr": json.dumps(header), "h": proposal.header_hash})
-
-
-@dataclass(frozen=True)
-class Loaded:
-    first_pass: dict[str, list[BatchResult]]
-    resumed: list[BatchResult]
-
-
-@pytest.fixture(scope="module")
-def loaded(silver_db: Engine, generated_profiles: dict[str, SourceProfile]) -> Loaded:
-    """Ingest every file with PLT-01's second header (lot_no added) unconfirmed, then confirm it and re-run
-    the blocked files — so blocking and resuming are both exercised before the content checks."""
-    sources = discover_sources(DATA / "sources")
-    for source, profile in generated_profiles.items():
-        for i, variant in enumerate(profile.header_variants):
-            if not (source == "plt01" and i == 1):
-                _confirm(silver_db, profile, variant.columns)
-    first = {source: [ingest_file(silver_db, source, f) for f in files] for source, files in sources.items()}
-    plt01 = generated_profiles["plt01"]
-    _confirm(silver_db, plt01, plt01.header_variants[1].columns)
-    by_name = {f.name: f for f in sources["plt01"]}
-    resumed = [ingest_file(silver_db, "plt01", by_name[b.file_name])
-               for b in first["plt01"] if b.status == "blocked"]
-    return Loaded(first, resumed)
-
-
 @pytest.mark.postgres
 def test_unconfirmed_header_blocks_then_resumes_after_confirm(loaded: Loaded) -> None:
     blocked = [b for b in loaded.first_pass["plt01"] if b.status == "blocked"]
     assert [b.file_name[-11:-4] for b in blocked] == ["2026-06", "2026-07", "2026-08"]
     assert all(b.silver_rows == 0 and b.rows > 0 for b in blocked)
     assert all("no confirmed mapping" in (b.error or "") for b in blocked)
-    assert all(r.replayed and r.status == "mapped" and r.silver_rows == r.rows for r in loaded.resumed)
+    assert all(r.replayed and r.status == "validated" and r.silver_rows == r.rows for r in loaded.resumed)
     assert [r.batch_id for r in loaded.resumed] == [b.batch_id for b in blocked]
 
 
@@ -120,7 +64,7 @@ def test_nothing_dropped_and_replay_writes_nothing(silver_db: Engine, loaded: Lo
     assert bronze == csv_rows and batches == 54
 
     file = discover_sources(DATA / "sources")["plt02"][0]
-    again = ingest_file(silver_db, "plt02", file)
+    again = ingest_file(silver_db, "plt02", file, DATA / "master")
     assert again.replayed and again.batch_id == loaded.first_pass["plt02"][0].batch_id
     with silver_db.connect() as conn:
         assert conn.execute(text("SELECT count(*) FROM bronze.raw_order_lines")).scalar_one() == bronze
@@ -137,7 +81,7 @@ def test_silver_matches_clean_gold_for_every_unfaulted_line(
     """
     with silver_db.connect() as conn:
         not_mapped = conn.execute(
-            text("SELECT count(*) FROM ops.batches WHERE status <> 'mapped'")).scalar_one()
+            text("SELECT count(*) FROM ops.batches WHERE status <> 'validated'")).scalar_one()
         assert not_mapped == 0
         silver = pd.DataFrame(conn.execute(text("SELECT * FROM silver.order_lines")).mappings().all())
         bronze_rows = conn.execute(text("SELECT count(*) FROM bronze.raw_order_lines")).scalar_one()

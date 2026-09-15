@@ -125,14 +125,18 @@ def test_exception_rows_enforce_queue_contract(engine: Engine) -> None:
     with engine.begin() as conn:
         batch_id = conn.execute(
             text("INSERT INTO ops.batches (source) VALUES ('plt01') RETURNING batch_id")).scalar()
-    row = {"b": batch_id, "rule": "V004", "key": "SO1|1", "reason": "unknown customer"}
-    insert = text("INSERT INTO ops.exceptions (batch_id, rule_id, severity, row_key, reason, status) "
-                  "VALUES (:b, :rule, 'block', :key, :reason, :status)")
+        conn.execute(text("INSERT INTO bronze.raw_order_lines (batch_id, source_row, record) "
+                          "SELECT :b, n, '{}' FROM generate_series(1, 4) n"), {"b": batch_id})
+    row = {"b": batch_id, "rule": "V004", "n": 1, "key": "SO1|1", "reason": "unknown customer"}
+    insert = text("INSERT INTO ops.exceptions (batch_id, source, source_row, rule_id, severity, row_key, "
+                  "reason, status) VALUES (:b, 'plt01', :n, :rule, 'block', :key, :reason, :status)")
     with engine.begin() as conn:
         conn.execute(insert, {**row, "status": "open"})
-    # the same failure queued twice on a re-run, a resolution without who/when/what, a malformed rule id
-    for bad in ({**row, "status": "open"}, {**row, "key": "SO1|2", "status": "resolved"},
-                {**row, "key": "SO1|3", "rule": "RULE4", "status": "open"}):
+        conn.execute(insert, {**row, "n": 2, "status": "open"})  # a duplicate line: same row_key, own row
+    # the same failure queued twice on a re-run, a resolution without who/when/what, a malformed rule id,
+    # an exception pointing at a row that bronze never received
+    for bad in ({**row, "status": "open"}, {**row, "n": 3, "status": "resolved"},
+                {**row, "n": 4, "rule": "RULE4", "status": "open"}, {**row, "n": 99, "status": "open"}):
         with pytest.raises(IntegrityError), engine.begin() as conn:
             conn.execute(insert, bad)
 

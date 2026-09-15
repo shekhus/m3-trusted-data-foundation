@@ -22,6 +22,7 @@ from sqlalchemy import Connection, Engine, text
 from pipeline.canonical import BY_NAME, ORDER_LINE
 from pipeline.mapper.contract import MappingProposal, header_hash
 from pipeline.transforms import apply
+from pipeline.validate import load_masters, validate_batch
 
 SILVER_COLUMNS = [f.name for f in ORDER_LINE]
 
@@ -37,6 +38,8 @@ class BatchResult:
     parse_errors: int
     replayed: bool
     error: str | None
+    blocking_exceptions: int = 0
+    warning_exceptions: int = 0
 
 
 def _driver_cursor(conn: Connection) -> Any:
@@ -61,8 +64,12 @@ def _result(conn: Connection, batch_id: str, replayed: bool) -> BatchResult:
     counts = conn.execute(text(
         "SELECT count(*) AS n, count(*) FILTER (WHERE parse_errors <> '{}'::jsonb) AS bad "
         "FROM silver.order_lines WHERE batch_id = :id"), {"id": batch_id}).one()
+    exceptions: dict[str, int] = dict(conn.execute(text(
+        "SELECT severity, count(*) FROM ops.exceptions WHERE batch_id = :id AND status <> 'resolved' "
+        "GROUP BY 1"), {"id": batch_id}).tuples().all())
     return BatchResult(str(b.batch_id), b.source, b.file_name, b.status, b.row_count or 0, counts.n,
-                       counts.bad, replayed, b.error)
+                       counts.bad, replayed, b.error, int(exceptions.get("block", 0)),
+                       int(exceptions.get("warn", 0)))
 
 
 def build_silver(conn: Connection, batch_id: str) -> None:
@@ -108,7 +115,8 @@ def build_silver(conn: Connection, batch_id: str) -> None:
                                                    "mapping_version_id": mapping_version_id})})
 
 
-def ingest_file(engine: Engine, source: str, path: Path) -> BatchResult:
+def ingest_file(engine: Engine, source: str, path: Path, master_dir: Path) -> BatchResult:
+    """File → bronze → silver → validated. Stops at `blocked` when the header has no confirmed mapping."""
     content = path.read_bytes()
     digest = hashlib.sha256(content).hexdigest()
     key = f"file:{source}:{path.name}:{digest}"
@@ -117,9 +125,11 @@ def ingest_file(engine: Engine, source: str, path: Path) -> BatchResult:
         existing = conn.execute(text("SELECT batch_id, status FROM ops.batches WHERE idempotency_key = :k"),
                                 {"k": key}).first()
         if existing is not None:
+            batch_id = str(existing.batch_id)
             if existing.status == "blocked":  # a mapping may have been confirmed since
-                build_silver(conn, str(existing.batch_id))
-            return _result(conn, str(existing.batch_id), replayed=True)
+                build_silver(conn, batch_id)
+            _finish(conn, batch_id, master_dir)
+            return _result(conn, batch_id, replayed=True)
 
         frame = pd.read_csv(io.BytesIO(content), dtype=str, keep_default_na=False, encoding="utf-8")
         header = list(frame.columns)
@@ -133,4 +143,13 @@ def ingest_file(engine: Engine, source: str, path: Path) -> BatchResult:
             for i, values in enumerate(frame.itertuples(index=False, name=None), start=1):
                 copy.write_row([batch_id, i, json.dumps(dict(zip(header, values, strict=True)))])
         build_silver(conn, batch_id)
+        _finish(conn, batch_id, master_dir)
         return _result(conn, batch_id, replayed=False)
+
+
+def _finish(conn: Connection, batch_id: str, master_dir: Path) -> None:
+    """Validate a batch that reached silver but has not been validated yet (new, resumed, or pre-rules)."""
+    status = conn.execute(text("SELECT status FROM ops.batches WHERE batch_id = :id"),
+                          {"id": batch_id}).scalar_one()
+    if status == "mapped":
+        validate_batch(conn, batch_id, load_masters(master_dir))
