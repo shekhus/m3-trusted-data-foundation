@@ -31,8 +31,8 @@ _load_dotenv()
 
 
 def normalise_database_url(url: str) -> str:
-    """Hosted Postgres (Railway, Heroku-style) hands out `postgres://` or `postgresql://` URLs; SQLAlchemy would
-    pick psycopg2 for those, which is not installed. Use psycopg 3 unless a driver is already named."""
+    """Hosted Postgres (Railway, Heroku-style) hands out `postgres://` or `postgresql://` URLs, for which
+    SQLAlchemy would pick psycopg2 (not installed). Use psycopg 3 unless a driver is already named."""
     for prefix in ("postgres://", "postgresql://"):
         if url.startswith(prefix):
             return "postgresql+psycopg://" + url[len(prefix):]
