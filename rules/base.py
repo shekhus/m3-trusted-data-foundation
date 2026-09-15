@@ -13,6 +13,8 @@ from typing import ClassVar, Literal
 
 import pandas as pd
 
+from metrics.fields import FieldDictionary, current_fields
+
 Severity = Literal["block", "warn"]
 
 
@@ -30,15 +32,22 @@ class RuleContext:
     source: str
     masters: Masters
     mapped: frozenset[str]  # canonical columns the batch's confirmed mapping provides
+    fields: FieldDictionary = field(default_factory=current_fields)  # metrics/fields/, current version
     notes: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class Violations:
-    """Rows a rule rejects: DataFrame index labels in `rows`, one evidence dict per row in `details`."""
+    """Rows a rule rejects: DataFrame index labels in `rows`, one evidence dict per row in `details`.
+
+    A rule whose severity or owner depends on the row (V012: blocked from a date, a warning before it) gives
+    `severities` / `owners` per row; otherwise the rule's own apply.
+    """
 
     rows: list[int]
     details: list[dict]
+    severities: list[Severity] | None = None
+    owners: list[str] | None = None
 
     @classmethod
     def none(cls) -> Violations:

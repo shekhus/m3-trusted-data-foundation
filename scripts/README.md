@@ -14,6 +14,8 @@ that works in PowerShell, CMD, or Git Bash from the repo root. Add a row here wh
 | `make ingest SRC=plt01` | `.venv\Scripts\python scripts/ingest.py plt01` (add `--key K` to replay) |
 | `make eval-exceptions` | `.venv\Scripts\python scripts/eval_exceptions.py` |
 | `make eval-drift` | `.venv\\Scripts\\python scripts/eval_drift.py` |
+| `make revalidate SRC=plt01` | `.venv\Scripts\python scripts/revalidate.py plt01` |
+| `make eval-change-request` | `.venv\Scripts\python scripts/eval_change_request.py` |
 | `make reconcile` | `.venv\\Scripts\\python scripts/reconcile.py` |
 | `make portal` | `.venv\Scripts\python -m streamlit run portal/app.py` (or `make up` for the portal container) |
 | `make name-check` | `.venv\Scripts\python scripts/check_company_name.py` |

@@ -94,16 +94,19 @@ def validate_batch(conn: Connection, batch_id: str, masters: Masters) -> dict[st
         counts[rule.id] = len(violations.rows) if violations else 0
         if not violations:
             continue
-        for i, details in zip(violations.rows, violations.details, strict=True):
+        severities = violations.severities or [rule.severity] * len(violations.rows)
+        owners = violations.owners or [rule.owner(ctx)] * len(violations.rows)
+        for i, details, severity, owner in zip(violations.rows, violations.details, severities, owners,
+                                               strict=True):
             row = df.loc[i]
             order_no = row["order_no"] if pd.notna(row["order_no"]) else "?"
             line_no = int(row["line_no"]) if pd.notna(row["line_no"]) else "?"
             values = {**{k: v for k, v in row.items() if k != "parse_errors"}, **details}
             found.append({
-                "b": batch_id, "source": batch.source, "rule": rule.id, "severity": rule.severity,
+                "b": batch_id, "source": batch.source, "rule": rule.id, "severity": severity,
                 "row": int(row["source_row"]), "key": f"{order_no}|{line_no}",
                 "reason": _format(rule.message, values), "fix": _format(rule.suggested_fix, values),
-                "owner": rule.owner(ctx), "details": json.dumps(details, default=str),
+                "owner": owner, "details": json.dumps(details, default=str),
             })
 
     if found:

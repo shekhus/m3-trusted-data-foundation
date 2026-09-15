@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from rules.base import Masters, Rule, RuleContext, Violations
-from rules.completeness import V001RequiredFields, V010ValuesParsed
+from rules.completeness import V001RequiredFields, V010ValuesParsed, V012RequiredFromDate
 from rules.dates_quantities import (
     V002DateOrder,
     V003InvoicedWeightTolerance,
@@ -16,7 +16,7 @@ from rules.master_data import V004KnownCustomer, V005KnownItem, V006LotNotExpire
 RULES: tuple[Rule, ...] = (
     V001RequiredFields(), V002DateOrder(), V003InvoicedWeightTolerance(), V004KnownCustomer(),
     V005KnownItem(), V006LotNotExpired(), V007NonNegativeQuantities(), V008DuplicateLine(),
-    V009UomMatchesItemMaster(), V010ValuesParsed(), V011OrderedWhenInvoiced(),
+    V009UomMatchesItemMaster(), V010ValuesParsed(), V011OrderedWhenInvoiced(), V012RequiredFromDate(),
 )
 BY_ID: dict[str, Rule] = {r.id: r for r in RULES}
 

@@ -1,0 +1,29 @@
+# Field dictionary for silver.order_lines: which canonical fields a row must carry, and from when.
+# V001 checks the fields required without a date; V012 checks the ones required from a date.
+table: silver.order_lines
+version: 2
+status: current
+owner: data_governance
+changed_by: quality
+effective_from: 2026-06-01
+change_request: "CR-001 lot traceability: lot_no required on every shipped line from 2026-06-01"
+required:
+  - column: order_no
+  - column: line_no
+  - column: customer_no
+  - column: item_no
+  - column: plant
+  - column: order_date
+  - column: requested_date
+  - column: confirmed_delivery_date
+  - column: issue_date
+  - column: ordered_qty
+  - column: lot_no
+    required_from: 2026-06-01
+    by: issue_date
+    owner: quality
+    fix: "Plant to send lot_no on the extract and resend the line; quality to confirm the lot shipped"
+    before: "Not covered: shipped before lot_no was required and the source did not carry it. No fix at source; report the line as not covered for this period"
+notes: >-
+  v2 (month 15 change request): lot_no becomes required for lines issued on or after 2026-06-01. Lines issued
+  earlier that lack it are queued as warnings (not covered), never dropped and never blocked retroactively.

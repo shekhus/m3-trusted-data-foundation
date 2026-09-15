@@ -1,0 +1,21 @@
+# Field dictionary for silver.order_lines: which canonical fields a row must carry, and from when.
+# V001 checks the fields required without a date; V012 checks the ones required from a date.
+table: silver.order_lines
+version: 1
+status: superseded
+owner: data_governance
+changed_by: data_governance
+effective_from: 2025-03-01
+required:
+  - column: order_no
+  - column: line_no
+  - column: customer_no
+  - column: item_no
+  - column: plant
+  - column: order_date
+  - column: requested_date
+  - column: confirmed_delivery_date
+  - column: issue_date
+  - column: ordered_qty
+notes: >-
+  Baseline at project start: the ten fields every order line needs to be reported at all.

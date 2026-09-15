@@ -59,7 +59,7 @@ def _first(client: TestClient, **filters: Any) -> dict:  # noqa: ANN401
 def test_list_filters_and_pages(api: tuple[TestClient, str]) -> None:
     client, _ = api
     everything = _get(client, "/exceptions", source="plt01", limit=500)
-    assert everything["total"] == len(everything["items"]) > 0
+    assert len(everything["items"]) == min(everything["total"], 500) > 0
     blocking = _get(client, "/exceptions", severity="block", limit=500)
     assert blocking["total"] > 0 and {e["severity"] for e in blocking["items"]} == {"block"}
     v004 = _get(client, "/exceptions", rule_id="V004")

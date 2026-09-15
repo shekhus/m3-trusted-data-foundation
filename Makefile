@@ -1,4 +1,4 @@
-.PHONY: synth probe profile metrics eval-mapping silver ingest eval-exceptions eval-drift reconcile portal name-check up down logs migrate api test lint
+.PHONY: synth probe profile metrics eval-mapping silver ingest eval-exceptions eval-drift reconcile revalidate eval-change-request portal name-check up down logs migrate api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
@@ -29,6 +29,12 @@ eval-exceptions:      ## exception recall/precision of the loaded sources vs fau
 
 eval-drift:           ## drift alerts in the database vs drift.json (2/2 detected and named, false alerts)
 	$(PY) scripts/eval_drift.py
+
+revalidate:           ## re-run every rule on validated batches (after a rule or field dictionary change)
+	$(PY) scripts/revalidate.py $(SRC)
+
+eval-change-request:  ## lot_no change request (V012) scored exactly from the raw extract
+	$(PY) scripts/eval_change_request.py
 
 reconcile:            ## reconciliation job on published gold: consumer views agree, BI tool gaps by cause; scored
 	$(PY) scripts/reconcile.py

@@ -1,0 +1,12 @@
+# Change absorption case (docs/plan.md A11, §2.5 "Change absorption", §2.6 "Mid-project new required field").
+# The month-15 change request: lot_no becomes required. It is absorbed by a field dictionary bump
+# (metrics/fields/order_line.v2.yaml) and rule V012 — no report SQL, no mapping, no silver or gold change.
+# Expected exceptions are derived from the raw extract rows in bronze and the answer key, not from V012:
+#   - a raw row of the drift source without a lot value, issued on/after the drift's effective date → block
+#   - such a row issued before it → warn ("not covered"): queued, never dropped, never blocked retroactively
+#   - every other source: one V012 exception per raw row with a blank lot, none otherwise
+case: change_request_lot_no
+drift_id: D2                 # ground_truth/drift.json: effective date and source come from the key
+column: lot_no
+rule: V012
+dictionary_version: 2

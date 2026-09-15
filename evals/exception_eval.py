@@ -6,6 +6,9 @@ ordered in May and shipped in June sits in a file with no lot column. Detectabil
 the loaded data — a V006 fault is detectable when its row came from a header whose mapping supplies lot_no —
 and the answer key's figure is reported beside it (docs/decisions.md D-018).
 
+V012 is not a seeded fault family: it is the month-15 change request, scored exactly from the raw extract by
+evals/change_request_eval.py, so its exceptions are left out of this recall and precision.
+
 Precision is reported two ways: by row, the answer key's definition (an exception on a row with no seeded
 fault is a false positive), and by (row, rule). Every unexplained exception is listed with its evidence.
 """
@@ -86,7 +89,7 @@ def score(conn: Connection, data_dir: Path) -> ExceptionScore:
     exceptions = pd.DataFrame(conn.execute(text(
         "SELECT e.source, e.rule_id AS rule, e.row_key, e.source_row, e.batch_id, e.reason, e.details "
         "FROM ops.exceptions e JOIN ops.batches b USING (batch_id) "
-        "WHERE b.status IN ('validated', 'published') "
+        "WHERE b.status IN ('validated', 'published') AND e.rule_id <> 'V012' "
         "AND (e.status <> 'resolved' OR e.resolved_by <> 'system:revalidation')")).mappings().all(),
         columns=["source", "rule", "row_key", "source_row", "batch_id", "reason", "details"])
     with_lot = {r[0] for r in conn.execute(text(
