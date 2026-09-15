@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
+
+from banned_terms import BANNED_RE
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKIP_DIRS = {".venv", ".git", "data", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache"}
 TEXT_SUFFIXES = {".md", ".py", ".toml", ".yml", ".yaml", ".json", ".sql", ".txt", ".example", ".cfg", ".ini"}
 TEXT_NAMES = {"Makefile", "Dockerfile", ".gitignore", ".dockerignore"}
-
-BANNED = ("american foods", "afg", "birst", "kion", "prescott", "ricardo")
-BANNED_RE = re.compile(r"\b(" + "|".join(re.escape(b) for b in BANNED) + r")\b", re.IGNORECASE)
+SKIP_FILES = {Path(__file__).resolve(), (REPO_ROOT / "tests" / "banned_terms.py").resolve()}
 
 
 def _repo_text_files() -> list[Path]:
@@ -20,7 +19,7 @@ def _repo_text_files() -> list[Path]:
         rel = path.relative_to(REPO_ROOT)
         if any(part in SKIP_DIRS for part in rel.parts) or not path.is_file():
             continue
-        if path.resolve() == Path(__file__).resolve():
+        if path.resolve() in SKIP_FILES:
             continue
         if path.suffix in TEXT_SUFFIXES or path.name in TEXT_NAMES:
             files.append(path)

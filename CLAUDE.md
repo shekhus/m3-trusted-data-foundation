@@ -72,7 +72,7 @@ pipeline/       profile.py, mapper/{heuristic.py, llm.py, contract.py}, validate
 rules/          one module per rule family; registry in rules/__init__.py
 metrics/        *.yaml definitions + compiler.py (YAML → SQL views)
 sources/        adapter protocol + synthetic/{m3_extract,report_feed,plant_scale}.py
-synth/          generator.py, quirks.py, faults.py, drift_events.py; writes data/ and ground_truth/
+synth/          generate.py (entry), config.py (the whole world), world/events/gold/export/bi_tools/knowledge/kb_questions/truth.py, probes/; writes data/ incl. data/ground_truth/
 db/             migrations (plain SQL, numbered), schemas: bronze, silver, gold, ops
 portal/         Streamlit pages
 llm/            client.py (single provider behind an interface), prompts/
@@ -90,6 +90,7 @@ docker-compose.yml  Dockerfile  Makefile  .env.example  README.md
 
 ```
 make synth        # generate synthetic data + ground truth (deterministic seed)
+make probe        # fault + anomaly calibration probes (reference ceilings)
 make profile      # profile all sources → docs/findings.md
 make up           # docker compose up (Postgres + app + portal)
 make migrate      # apply db/migrations
@@ -149,6 +150,6 @@ Windows: run via Git Bash, or use `python scripts/<name>.py` equivalents listed 
 
 See `docs/plan.md` week table and `docs/decisions.md`. Update the line below at the end of each session:
 
-`STATUS: week 1 — task 1 done (docs, Makefile, compose, Dockerfile, /healthz, hygiene test). Next: task 2 synth generator import, task 3 migrations. docker compose not yet run (Docker not installed).`
+`STATUS: week 1 — tasks 1-2 done (scaffold; synth imported, deterministic, answer key locked). Next: task 3 migrations, then profiler. Docker install pending (needs admin shell).`
 
 Plan is now SIX weeks: weeks 1-4 as originally scoped, week 5 retrieval (A14-A18), week 6 the exception agent (A13). See `docs/addendum1.md`.

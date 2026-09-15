@@ -1,7 +1,16 @@
-.PHONY: up down logs api test lint
+.PHONY: synth probe name-check up down logs api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
+
+synth:                ## generate data/ + ground_truth (deterministic, ~30s)
+	$(PY) -m synth.generate --out data --clean
+
+probe:                ## fault + anomaly calibration probes against data/
+	$(PY) scripts/probe.py
+
+name-check:           ## company-name collision checklist (before publishing)
+	$(PY) scripts/check_company_name.py
 
 up:                   ## Postgres + app in Docker
 	docker compose up -d --build

@@ -39,3 +39,17 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
 - **Decision:** `tests/test_repo_hygiene.py` scans every text file in the repo (excluding `.venv`, `data`, `.git`) for banned engagement terms and fails on any whole-word match.
 - **Alternatives:** manual review before publishing; a pre-commit hook.
 - **Reason:** the planning documents started from a private plan. A test runs on every `make test` and in CI; a hook can be skipped. The banned list matches the synth generator's own guard.
+
+### D-007 · 2026-09-15 · Import the synth generator as-is; keep its module layout
+
+- **Decision:** `synth/` is the prepared generator (seed `20260912`), imported with its own modules (`generate`, `config`, `world`, `events`, `gold`, `export`, `bi_tools`, `knowledge`, `kb_questions`, `truth`) and probes under `synth/probes/`. CLAUDE.md's layout line was updated to match rather than renaming modules to `generator/quirks/faults/drift_events`. Its ground-truth tests live in `tests/test_synth.py`. `pyarrow>=25.0.1` added (verified on PyPI 2026-09-15). The RAG probe needs scikit-learn, which is deferred to week 5.
+- **Alternatives:** rewrite the generator to the names in CLAUDE.md; keep it in a separate repo.
+- **Reason:** its self-check, calibration and 40 integrity tests are the value; renaming adds risk and no information. Output was verified against the shipped sample: all 7 metric series equal, faults.json equal as JSON, sampled source CSVs byte-identical. Probe results match its README (fault recall 96.9%, precision 99.6%; A1 attribution top-1 correct).
+- **Edits made on import (all verified output-neutral by regenerating and diffing — only timestamps differ):** UTF-8 + LF on every file write so Windows and Linux produce identical bytes; lint/type fixes (`cast`, annotations, loop-variable binding); scrubbed engagement references from `synth/README.md`; one shared banned-term list (`tests/banned_terms.py`) now scans all generated text, not three files.
+- **Finding for week 3:** `fault_probe` reports V006 32/50 caught with 2 unexplained flags, where the generator README says 33/50. The ceiling in `faults.json` is 33. Investigate when V006 is implemented — likely a lot/expiry boundary (same-day expiry) rather than a data defect.
+
+### D-008 · 2026-09-15 · Fix nondeterministic key order in faults.json; lock the answer key
+
+- **Decision:** `truth._achievable_ceiling` iterated a `set`, so key order in `faults.json` changed with `PYTHONHASHSEED` (content identical). Now sorted. `data/` stays gitignored, but `tests/ground_truth.lock` commits sha256 hashes of 95 generated files (ground truth JSON except the timestamped manifest, source extracts, masters, report feeds, KB); `tests/test_ground_truth_lock.py` fails on any drift. Update with `python scripts/lock_ground_truth.py` only for intended changes, logged here.
+- **Alternatives:** commit `data/ground_truth/` itself; trust the seed.
+- **Reason:** CLAUDE.md says never rewrite ground truth; the seed alone did not guarantee that (this bug proved it). Hashes make any change loud without committing 18 MB. Verified: two runs with different `PYTHONHASHSEED` are byte-identical apart from timestamps, and the lock test fails when one file is altered. Parquet is excluded because its bytes depend on the pyarrow version.
