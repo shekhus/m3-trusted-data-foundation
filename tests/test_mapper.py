@@ -31,6 +31,20 @@ def test_contract_rejects_unknown_transform() -> None:
         ColumnMapping.model_validate(_col("dt", "order_date", ["parse_date_guess"]))
 
 
+@pytest.mark.parametrize(
+    ("canonical", "transforms", "message"),
+    [("order_date", [], "exactly one date parser"),
+     ("order_date", ["parse_date_iso", "parse_date_us"], "exactly one date parser"),
+     ("ordered_qty", ["parse_date_iso"], "only applies to dates"),
+     ("ordered_qty", ["kg_to_lb"], "only applies to weights"),
+     ("item_no", ["normalize_customer_no"], "only applies to the customer number")],
+)
+def test_contract_rejects_transforms_that_do_not_fit_the_column(canonical: str, transforms: list,
+                                                                message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        ColumnMapping.model_validate(_col("x", canonical, transforms))
+
+
 def test_contract_rejects_column_not_in_header_and_missing_columns() -> None:
     with pytest.raises(ValidationError, match="missing \\['b'\\], not in header \\['c'\\]"):
         MappingProposal.model_validate({"source": "s", "header": ["a", "b"], "proposed_by": "llm",

@@ -1,4 +1,4 @@
-.PHONY: synth probe profile metrics eval-mapping name-check up down logs migrate api test lint
+.PHONY: synth probe profile metrics eval-mapping silver name-check up down logs migrate api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
@@ -17,6 +17,9 @@ metrics:              ## compile metrics/*.yaml -> metrics/compiled/*.sql and cr
 
 eval-mapping:         ## score mapping proposers against ground truth -> evals/results/mapping_<date>.json
 	$(PY) scripts/eval_mapping.py
+
+silver:               ## files -> bronze -> silver for one source (needs a confirmed mapping per header), e.g. make silver SRC=plt01
+	$(PY) scripts/build_silver.py $(SRC)
 
 name-check:           ## company-name collision checklist (before publishing)
 	$(PY) scripts/check_company_name.py

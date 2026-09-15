@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from pipeline.canonical import BY_NAME, REQUIRED, Transform
 
+DATE_PARSERS = {"parse_date_iso", "parse_date_us", "parse_date_dmy", "parse_excel_serial"}
+
 
 class ColumnMapping(BaseModel):
     source_col: str
@@ -31,9 +33,23 @@ class ColumnMapping(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _unmapped_has_no_transforms(self) -> ColumnMapping:
-        if self.canonical_col is None and self.transforms:
-            raise ValueError(f"{self.source_col}: an unmapped column cannot carry transforms")
+    def _transforms_fit_the_column(self) -> ColumnMapping:
+        if self.canonical_col is None:
+            if self.transforms:
+                raise ValueError(f"{self.source_col}: an unmapped column cannot carry transforms")
+            return self
+        kind = BY_NAME[self.canonical_col].kind
+        parsers = [t for t in self.transforms if t in DATE_PARSERS]
+        if kind == "date" and len(parsers) != 1:
+            raise ValueError(f"{self.source_col} → {self.canonical_col}: a date column needs exactly one "
+                             f"date parser, got {parsers}")
+        if kind != "date" and parsers:
+            raise ValueError(f"{self.source_col} → {self.canonical_col}: {parsers} only applies to dates")
+        if "kg_to_lb" in self.transforms and kind != "weight":
+            raise ValueError(f"{self.source_col} → {self.canonical_col}: kg_to_lb only applies to weights")
+        if "normalize_customer_no" in self.transforms and kind != "customer":
+            raise ValueError(f"{self.source_col} → {self.canonical_col}: normalize_customer_no only applies "
+                             "to the customer number")
         return self
 
 
