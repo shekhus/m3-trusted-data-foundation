@@ -1,4 +1,4 @@
-.PHONY: synth probe profile metrics eval-mapping silver name-check up down logs migrate api test lint
+.PHONY: synth probe profile metrics eval-mapping silver portal name-check up down logs migrate api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
@@ -20,6 +20,9 @@ eval-mapping:         ## score mapping proposers against ground truth -> evals/r
 
 silver:               ## files -> bronze -> silver for one source (needs a confirmed mapping per header), e.g. make silver SRC=plt01
 	$(PY) scripts/build_silver.py $(SRC)
+
+portal:               ## Streamlit mapping console on http://localhost:8501 (needs the API running)
+	$(PY) -m streamlit run portal/app.py
 
 name-check:           ## company-name collision checklist (before publishing)
 	$(PY) scripts/check_company_name.py

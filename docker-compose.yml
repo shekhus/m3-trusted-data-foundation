@@ -1,4 +1,4 @@
-# Local stack: Postgres + API. The Streamlit portal service is added in week 2 (docs/decisions.md D-005).
+# Local stack: Postgres + API + Streamlit portal (docs/decisions.md D-005, D-016).
 # Values come from .env when present; the defaults below are local-only development credentials.
 
 services:
@@ -34,6 +34,8 @@ services:
     volumes:
       # generated extracts + masters, read-only (data/ is excluded from the image by .dockerignore)
       - ./data:/app/data:ro
+      # uploaded extracts are the only thing the app writes under data/
+      - ./data/uploads:/app/data/uploads
     ports:
       - "8000:8000"
     healthcheck:
@@ -41,6 +43,18 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+
+  portal:
+    build: .
+    depends_on:
+      app:
+        condition: service_healthy
+    command: ["streamlit", "run", "portal/app.py", "--server.port", "8501", "--server.address", "0.0.0.0",
+              "--server.headless", "true", "--browser.gatherUsageStats", "false"]
+    environment:
+      API_BASE_URL: http://app:8000
+    ports:
+      - "8501:8501"
 
 volumes:
   pgdata:

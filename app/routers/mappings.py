@@ -14,10 +14,11 @@ from sqlalchemy import Connection, Engine, text
 from app.auth import Principal, require
 from app.config import Settings, get_settings
 from app.db import get_engine
+from app.routers.sources import all_sources
 from llm.client import DbRecorder, LLMClient, build_client
 from pipeline.mapper import llm as llm_mapper
 from pipeline.mapper.contract import ColumnMapping, MappingProposal
-from pipeline.profile import discover_sources, profile_source_cached
+from pipeline.profile import profile_source_cached
 
 router = APIRouter(tags=["mappings"])
 
@@ -96,7 +97,7 @@ def _store(conn: Connection, proposal: MappingProposal) -> MappingVersion:
 
 
 def _known_source(settings: Settings, source: str) -> list:
-    files = discover_sources(settings.sources_dir).get(source) if settings.sources_dir.is_dir() else None
+    files = all_sources(settings).get(source)
     if not files:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"unknown source '{source}'")
     return files

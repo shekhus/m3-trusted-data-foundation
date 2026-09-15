@@ -150,6 +150,6 @@ Windows: run via Git Bash, or use `python scripts/<name>.py` equivalents listed 
 
 See `docs/plan.md` week table and `docs/decisions.md`. Update the line below at the end of each session:
 
-`STATUS: week 2 — tasks 5-8a done (metric dictionary; heuristic + LLM mapper with per-header mapping versions; files → bronze → silver from confirmed mappings, verified against clean gold for all three plants). LLM accuracy NOT measured: Anthropic account has no credit. Next: task 8b Streamlit portal (upload → findings → propose → confirm), then week 3 rules V001–V011 + exception queue.`python scripts/eval_mapping.py --llm` once topped up). Next: task 8 PLT-01 silver from the confirmed mapping + portal.`
+`STATUS: week 2 complete in code — tasks 5-8 done (metric dictionary; heuristic + LLM mapper, per-header mapping versions, owner-only confirm; files → bronze → silver verified against clean gold for all 3 plants; Streamlit portal on :8501). Open: LLM mapping accuracy NOT measured (Anthropic account has no credit — run `python scripts/eval_mapping.py --llm` once topped up); dev DB has PLT-01's lot_no header awaiting owner confirmation. Next: week 3 — rules V001–V011, exception queue + portal view, idempotent /ingest, lineage.`python scripts/eval_mapping.py --llm` once topped up). Next: task 8 PLT-01 silver from the confirmed mapping + portal.`
 
 Plan is now SIX weeks: weeks 1-4 as originally scoped, week 5 retrieval (A14-A18), week 6 the exception agent (A13). See `docs/addendum1.md`.
