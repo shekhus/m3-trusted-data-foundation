@@ -56,8 +56,7 @@ services:
     depends_on:
       app:
         condition: service_healthy
-    command: ["streamlit", "run", "portal/app.py", "--server.port", "8501", "--server.address", "0.0.0.0",
-              "--server.headless", "true", "--browser.gatherUsageStats", "false"]
+    command: ["sh", "scripts/start_portal.sh"]
     environment:
       API_BASE_URL: http://app:8000
     ports:

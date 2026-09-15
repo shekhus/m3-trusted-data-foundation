@@ -30,6 +30,15 @@ def _load_dotenv(env_file: Path = REPO_ROOT / ".env") -> None:
 _load_dotenv()
 
 
+def normalise_database_url(url: str) -> str:
+    """Hosted Postgres (Railway, Heroku-style) hands out `postgres://` or `postgresql://` URLs; SQLAlchemy would
+    pick psycopg2 for those, which is not installed. Use psycopg 3 unless a driver is already named."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def _parse_api_keys(raw: str) -> dict[str, str]:
     keys: dict[str, str] = {}
     for pair in raw.split(","):
@@ -44,7 +53,8 @@ def _parse_api_keys(raw: str) -> dict[str, str]:
 @dataclass(frozen=True)
 class Settings:
     data_dir: Path = field(default_factory=lambda: REPO_ROOT / os.environ.get("DATA_DIR", "data"))
-    database_url: str = field(default_factory=lambda: os.environ.get("DATABASE_URL", ""))
+    database_url: str = field(
+        default_factory=lambda: normalise_database_url(os.environ.get("DATABASE_URL", "")))
     api_keys: dict[str, str] = field(default_factory=lambda: _parse_api_keys(os.environ.get("API_KEYS", "")))
     llm_provider: str = field(default_factory=lambda: os.environ.get("LLM_PROVIDER", "none"))
     llm_model: str = field(default_factory=lambda: os.environ.get("LLM_MODEL", "claude-sonnet-5"))

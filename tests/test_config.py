@@ -35,3 +35,21 @@ def test_dotenv_overrides_shell_environment(monkeypatch: pytest.MonkeyPatch, tmp
     monkeypatch.setenv("LLM_MODEL", "from-shell")
     _load_dotenv(env_file)
     assert Settings().llm_model == "from-dotenv"
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        (
+            "postgresql://u:p@db.railway.internal:5432/railway",
+            "postgresql+psycopg://u:p@db.railway.internal:5432/railway",
+        ),
+        ("postgres://u:p@host/db", "postgresql+psycopg://u:p@host/db"),
+        ("postgresql+psycopg://u:p@localhost:5432/m3tdf", "postgresql+psycopg://u:p@localhost:5432/m3tdf"),
+        ("", ""),
+    ],
+)
+def test_hosted_postgres_urls_use_psycopg3(url: str, expected: str) -> None:
+    from app.config import normalise_database_url
+
+    assert normalise_database_url(url) == expected
