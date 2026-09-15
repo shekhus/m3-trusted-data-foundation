@@ -9,9 +9,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def _load_dotenv() -> None:
-    """Minimal .env loader so local runs don't need an extra dependency. Env vars win."""
-    env_file = REPO_ROOT / ".env"
+def _load_dotenv(env_file: Path = REPO_ROOT / ".env") -> None:
+    """Minimal .env loader so local runs don't need an extra dependency.
+
+    The repo's .env wins over variables already in the shell: a developer machine often exports an unrelated
+    ANTHROPIC_API_KEY or DATABASE_URL for other tools (docs/decisions.md D-012). Containers and CI never see a
+    .env (.dockerignore, .gitignore), so there the real environment is the only source.
+    """
     if not env_file.exists():
         return
     for line in env_file.read_text(encoding="utf-8").splitlines():
@@ -19,7 +23,7 @@ def _load_dotenv() -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        os.environ.setdefault(key.strip(), value.strip())
+        os.environ[key.strip()] = value.strip()
 
 
 _load_dotenv()

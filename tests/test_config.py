@@ -25,3 +25,13 @@ def test_sqlite_fallback_when_database_url_unset(monkeypatch: pytest.MonkeyPatch
     settings = Settings(data_dir=tmp_path / "data")
     assert settings.resolved_database_url == f"sqlite:///{(tmp_path / 'data' / 'm3tdf.sqlite').as_posix()}"
     assert (tmp_path / "data").is_dir()
+
+
+def test_dotenv_overrides_shell_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from app.config import _load_dotenv
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("# comment\nLLM_MODEL=from-dotenv\n\nNOT_A_PAIR\n", encoding="utf-8")
+    monkeypatch.setenv("LLM_MODEL", "from-shell")
+    _load_dotenv(env_file)
+    assert Settings().llm_model == "from-dotenv"
