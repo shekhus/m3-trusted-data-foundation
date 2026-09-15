@@ -11,7 +11,9 @@ from sqlalchemy import create_engine  # noqa: E402
 
 from app.config import get_settings  # noqa: E402
 from db.migrate import MigrationError, migrate  # noqa: E402
+from pipeline import drift  # noqa: E402
 from pipeline.lineage import backfill  # noqa: E402
+from pipeline.profile import load_masters  # noqa: E402
 
 
 def main() -> int:
@@ -25,9 +27,12 @@ def main() -> int:
     engine = create_engine(url)
     with engine.begin() as conn:
         backfilled = backfill(conn)
+        fingerprinted = drift.backfill(conn, load_masters(get_settings().data_dir / "master"))
     engine.dispose()
     if backfilled:
         print(f"lineage backfilled: {backfilled} rows")
+    if fingerprinted:
+        print(f"drift fingerprints backfilled: {fingerprinted} batches")
     if applied:
         for name in applied:
             print(f"applied {name}")

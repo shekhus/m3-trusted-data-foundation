@@ -284,13 +284,16 @@ def _header_variants(headers: list[tuple[str, list[str]]]) -> list[HeaderVariant
 
 
 def profile_source(source: str, files: list[Path], masters: Masters) -> SourceProfile:
-    frames: list[pd.DataFrame] = []
-    headers: list[tuple[str, list[str]]] = []
-    for path in sorted(files):
-        frame = pd.read_csv(path, dtype=str, keep_default_na=False, encoding="utf-8")
-        headers.append((path.name, list(frame.columns)))
-        frames.append(frame)
-    df = pd.concat(frames, ignore_index=True)  # a column absent from a file is NaN; blank in a file is ""
+    named = [(path.name, pd.read_csv(path, dtype=str, keep_default_na=False, encoding="utf-8"))
+             for path in sorted(files)]
+    return profile_frames(source, named, masters)
+
+
+def profile_frames(source: str, named_frames: list[tuple[str, pd.DataFrame]],
+                   masters: Masters) -> SourceProfile:
+    """Profile already-read extracts (text columns), in the given order. Used per file by drift detection."""
+    headers = [(name, list(frame.columns)) for name, frame in named_frames]
+    df = pd.concat([f for _, f in named_frames], ignore_index=True)  # absent column → NaN; blank → ""
 
     columns: list[ColumnProfile] = []
     for name in df.columns:
@@ -326,7 +329,8 @@ def profile_source(source: str, files: list[Path], masters: Masters) -> SourcePr
     key = _candidate_key(df, columns)
     exact_dups = int(df.fillna("").duplicated(keep="first").sum())
     variants = _header_variants(headers)
-    profile = SourceProfile(source=source, file_count=len(files), rows=len(df), header_variants=variants,
+    profile = SourceProfile(source=source, file_count=len(named_frames), rows=len(df),
+                            header_variants=variants,
                             columns=columns, candidate_key=key, exact_duplicate_rows=exact_dups, findings=[])
     return profile.model_copy(update={"findings": findings(profile)})
 

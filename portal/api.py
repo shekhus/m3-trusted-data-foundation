@@ -80,3 +80,10 @@ class Api:
 
     def revalidate(self, batch_id: str) -> Reply:
         return self._call("POST", f"/batches/{batch_id}/revalidate")
+
+    def drift_alerts(self, source: str, status: str | None = "open") -> Reply:
+        return self._call("GET", "/drift/alerts", params={k: v for k, v in {"source": source,
+                                                                              "status": status}.items() if v})
+
+    def resolve_drift(self, alert_id: int, resolution: str) -> Reply:
+        return self._call("POST", f"/drift/alerts/{alert_id}/resolve", json={"resolution": resolution})

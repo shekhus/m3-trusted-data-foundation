@@ -169,6 +169,24 @@ with tab_batches:
                 st.warning(f"Stale extracts (older than the source SLA): {', '.join(r['stale'])}")
         else:
             show_error(reply)
+    drift_reply = api.drift_alerts(source)
+    if drift_reply.ok and drift_reply.data:
+        st.subheader("Open drift alerts (publish blocked)")
+        for alert in drift_reply.data:
+            with st.container(border=True):
+                st.markdown(f"**Alert {alert['alert_id']}** on {alert['file_name']}: {alert['message']}")
+                if not alert["header_has_confirmed_mapping"]:
+                    st.caption("Confirm a mapping for the new header (Mappings tab) before resolving.")
+                with st.form(f"drift-{alert['alert_id']}"):
+                    note = st.text_input("Resolution (owner only)", key=f"drift-note-{alert['alert_id']}")
+                    if st.form_submit_button("Resolve alert"):
+                        reply = api.resolve_drift(alert["alert_id"], note)
+                        if reply.ok:
+                            st.success("Drift alert resolved.")
+                        else:
+                            show_error(reply)
+    elif not drift_reply.ok:
+        show_error(drift_reply)
     reply = api.batches(source)
     if reply.ok:
         st.dataframe(pd.DataFrame(reply.data), hide_index=True, width="stretch")

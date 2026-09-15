@@ -20,9 +20,11 @@ from typing import Any
 import pandas as pd
 from sqlalchemy import Connection, Engine, text
 
+from pipeline import drift
 from pipeline.canonical import BY_NAME, ORDER_LINE
 from pipeline.lineage import record_lineage
 from pipeline.mapper.contract import MappingProposal, header_hash
+from pipeline.profile import load_masters as load_profile_masters
 from pipeline.transforms import apply
 from pipeline.validate import load_masters, validate_batch
 from sources.base import Extract, ExtractRef
@@ -44,6 +46,7 @@ class BatchResult:
     blocking_exceptions: int = 0
     warning_exceptions: int = 0
     stale: bool = False
+    drift_alert_id: int | None = None  # open drift alert on this batch's schema shape
 
 
 def _driver_cursor(conn: Connection) -> Any:
@@ -69,12 +72,16 @@ def _result(conn: Connection, batch_id: str, replayed: bool) -> BatchResult:
     counts = conn.execute(text(
         "SELECT count(*) AS n, count(*) FILTER (WHERE parse_errors <> '{}'::jsonb) AS bad "
         "FROM silver.order_lines WHERE batch_id = :id"), {"id": batch_id}).one()
+    alert = conn.execute(text(
+        "SELECT a.alert_id FROM ops.fingerprints f JOIN ops.drift_alerts a "
+        "ON a.source = f.source AND a.to_fingerprint = f.fingerprint AND a.status = 'open' "
+        "WHERE f.batch_id = :id"), {"id": batch_id}).scalar()
     exceptions: dict[str, int] = dict(conn.execute(text(
         "SELECT severity, count(*) FROM ops.exceptions WHERE batch_id = :id AND status <> 'resolved' "
         "GROUP BY 1"), {"id": batch_id}).tuples().all())
     return BatchResult(str(b.batch_id), b.source, b.file_name, b.status, b.row_count or 0, counts.n,
                        counts.bad, replayed, b.error, int(exceptions.get("block", 0)),
-                       int(exceptions.get("warn", 0)), bool(b.stale))
+                       int(exceptions.get("warn", 0)), bool(b.stale), None if alert is None else int(alert))
 
 
 def build_silver(conn: Connection, batch_id: str) -> None:
@@ -163,6 +170,7 @@ def ingest_extract(engine: Engine, extract: Extract, master_dir: Path, sla_hours
         with _driver_cursor(conn).copy(copy_sql) as copy:
             for i, values in enumerate(frame.itertuples(index=False, name=None), start=1):
                 copy.write_row([batch_id, i, json.dumps(dict(zip(header, values, strict=True)))])
+        drift.check(conn, batch_id, source, name, frame, load_profile_masters(master_dir))
         build_silver(conn, batch_id)
         _finish(conn, batch_id, master_dir)
         return _result(conn, batch_id, replayed=False)

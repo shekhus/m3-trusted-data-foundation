@@ -40,6 +40,7 @@ class IngestResult(BaseModel):
     validated: int
     blocked: int
     stale: list[str]
+    drift_alerts: list[int]
     blocking_exceptions: int
     warning_exceptions: int
 
@@ -110,6 +111,7 @@ def ingest(source: str, response: Response, principal: Annotated[Principal, Prop
         validated=sum(r.status == "validated" for r in results),
         blocked=sum(r.status == "blocked" for r in results),
         stale=[r.file_name for r in results if r.stale],
+        drift_alerts=sorted({r.drift_alert_id for r in results if r.drift_alert_id is not None}),
         blocking_exceptions=sum(r.blocking_exceptions for r in results),
         warning_exceptions=sum(r.warning_exceptions for r in results))
     idempotency.complete(engine, idempotency_key, result.model_dump(mode="json"))
