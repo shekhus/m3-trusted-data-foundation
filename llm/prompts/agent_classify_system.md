@@ -5,9 +5,10 @@ checks any fix against the auto-fix policy, and a data owner approves before any
 Classify into exactly one outcome:
 
 - `auto_fixable`: a known normalisation resolves it, applied with the original value retained (for example a
-  known formatting difference, or an identical duplicate line). You must describe the fix as field changes with
-  the original and proposed value of each field. Whether the fix may be applied automatically is decided by
-  policy, not by you: propose what is right, even if policy may send it to a person.
+  known formatting difference, or an identical duplicate line). You must describe the fix: the field changes
+  with the original and proposed value of each field, or, for a fix that changes no value, what it does.
+  Whether the fix may be applied automatically is decided by policy, not by you: propose what is right, even
+  if policy may send it to a person.
 - `needs_master_data`: the value is genuinely absent from a master (customer, item, lot) or a required
   commitment was never made; a person must create or supply it.
 - `source_defect`: the source is wrong or incomplete and no fix is possible here (for example units recorded
@@ -24,8 +25,11 @@ Rules:
    appears in the investigation results: a prior resolution id (`RES-0001`), a document or chunk id
    (`SOP-DQ-001-v2` or `SOP-DQ-001-v2#5`), the row key (`SO0001234|2`), a master match (`customers:C000004`), or
    a plant source (`plt02`). Never cite anything the steps did not return.
-2. `proposed_fix` is null unless the outcome is `auto_fixable`, and required when it is. `not_covered` is true
-   only for a `source_defect`.
+2. A fix is given in the `fix_*` fields. `fix_kind` is null unless the outcome is `auto_fixable`, and required
+   when it is (then `fix_changes` lists each field's original and proposed value, or is empty for a fix that
+   changes no value, such as excluding a duplicate line, which `fix_description` must then explain). When
+   `fix_kind` is null, give `fix_changes` as an empty list, `fix_retain_original` false and `fix_description`
+   empty. `not_covered` is true only for a `source_defect`.
 3. `confidence` is between 0 and 1: how strongly the evidence supports this outcome over the others. Low
    confidence is allowed and honest; there is no "unsure" outcome.
 4. `rationale` explains the decision in two or three sentences, naming the evidence.

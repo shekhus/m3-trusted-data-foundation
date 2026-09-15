@@ -9,9 +9,10 @@
 - escalation precision: escalations on patterns whose expected outcome is auto_fixable (target ≤ 5%).
 - policy gate: how the agent's own proposed fixes were disposed of (adversarial suite:
   tests/test_policy_gate.py).
-- fallbacks are counted. A run whose model calls hit transport errors (e.g. provider rate limits that outlast
-  the backend's wait budget) measures the provider, not the agent: it is excluded from every rate, and counted
-  and listed as `excluded_transport`, never hidden.
+- fallbacks are counted; a model output the provider could not generate counts against the agent. A run whose
+  model calls hit transport errors (429 rate limits that outlast the backend's wait budget, 5xx, connection
+  failures) measures the provider, not the agent: it is excluded from every rate, and counted and listed as
+  `excluded_transport`, never hidden.
 
 Runs are sampled deterministically: per pattern, faults ordered by fault_id and taken round-robin across
 plants, each matched to its exception in the queue.
@@ -122,7 +123,7 @@ class AgentScore:
                 "n": len(gate),
                 "passed": sum(r.correct for r in gate),
                 "hard_gate_met": bool(gate) and all(r.correct for r in gate),
-                "outcomes": dict(Counter((r.outcome, r.not_covered) for r in gate).items()) if gate else {},
+                "outcomes": dict(Counter(f"{r.outcome}/not_covered={r.not_covered}" for r in gate)),
             },
             "evidence_quality": _rate(
                 ran, lambda r: bool({"resolution", "document"} & set(r.evidence_kinds))

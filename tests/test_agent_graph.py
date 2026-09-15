@@ -55,11 +55,15 @@ def step(action: str, **arguments: str) -> dict[str, Any]:
 
 
 def classification(outcome: str, refs: list[tuple[str, str]], fix: dict | None = None, **extra: Any) -> dict:
+    """In the model's flat output shape (fix_* fields), as CLASSIFY_SCHEMA asks for."""
     return {
         "outcome": outcome,
         "confidence": 0.8,
         "evidence_refs": [{"kind": k, "ref": r} for k, r in refs],
-        "proposed_fix": fix,
+        "fix_kind": fix["kind"] if fix else None,
+        "fix_changes": fix["changes"] if fix else [],
+        "fix_retain_original": fix["retain_original"] if fix else False,
+        "fix_description": fix.get("description", "") if fix else "",
         "not_covered": False,
         "rationale": "The evidence gathered supports this outcome.",
         **extra,

@@ -118,7 +118,17 @@ VALUE = {"type": ["string", "number", "null"]}
 CLASSIFY_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["outcome", "confidence", "evidence_refs", "proposed_fix", "not_covered", "rationale"],
+    "required": [
+        "outcome",
+        "confidence",
+        "evidence_refs",
+        "fix_kind",
+        "fix_changes",
+        "fix_retain_original",
+        "fix_description",
+        "not_covered",
+        "rationale",
+    ],
     "properties": {
         "outcome": {
             "type": "string",
@@ -140,38 +150,40 @@ CLASSIFY_SCHEMA = {
                 },
             },
         },
-        "proposed_fix": {
-            "anyOf": [
-                {"type": "null"},
-                {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["kind", "changes", "retain_original", "description"],
-                    "properties": {
-                        "kind": {"type": "string"},
-                        "retain_original": {"type": "boolean"},
-                        "description": {"type": "string"},
-                        "changes": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": False,
-                                "required": ["field", "original", "proposed"],
-                                "properties": {
-                                    "field": {"type": "string"},
-                                    "original": VALUE,
-                                    "proposed": VALUE,
-                                },
-                            },
-                        },
-                    },
-                },
-            ]
+        # Flat, not a nullable nested object: Groq's strict decoder fails on anyOf[null, object] (D-030).
+        # fix_kind null means no fix; code rebuilds the ProposedFix from these fields (`_from_flat`).
+        "fix_kind": {"type": ["string", "null"]},
+        "fix_changes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["field", "original", "proposed"],
+                "properties": {"field": {"type": "string"}, "original": VALUE, "proposed": VALUE},
+            },
         },
+        "fix_retain_original": {"type": "boolean"},
+        "fix_description": {"type": "string"},
         "not_covered": {"type": "boolean"},
         "rationale": {"type": "string"},
     },
 }
+
+
+def _from_flat(data: dict[str, Any], exception_id: int) -> dict[str, Any]:
+    """The model's flat classification → the Resolution contract's shape."""
+    fix_kind = data.get("fix_kind")
+    fix = None
+    if fix_kind:
+        fix = {
+            "kind": fix_kind,
+            "changes": data.get("fix_changes", []),
+            "retain_original": data.get("fix_retain_original", False),
+            "description": data.get("fix_description", ""),
+        }
+    rest = {k: v for k, v in data.items() if not k.startswith("fix_")}
+    return {**rest, "proposed_fix": fix, "exception_id": exception_id}
+
 
 OWNERS = {
     "needs_master_data": {
@@ -307,7 +319,7 @@ def build_graph(deps: AgentDeps) -> StateGraph:
                     CLASSIFY_SYSTEM,
                     user,
                     CLASSIFY_SCHEMA,
-                    lambda d: Resolution.model_validate({**d, "exception_id": state["exception_id"]}),
+                    lambda d: Resolution.model_validate(_from_flat(d, state["exception_id"])),
                     max_tokens=3000,
                 )
             except (InvalidOutput, LLMError) as exc:

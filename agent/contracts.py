@@ -38,7 +38,7 @@ class ProposedFix(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: str = Field(min_length=1)  # the gate decides whether this kind is allowed; the contract does not
-    changes: list[FieldChange] = Field(min_length=1)
+    changes: list[FieldChange] = []  # empty only for a fix that changes no value (e.g. exclude a duplicate)
     retain_original: bool
     description: str = ""
 
@@ -47,6 +47,8 @@ class ProposedFix(BaseModel):
         fields = [c.field for c in self.changes]
         if len(set(fields)) != len(fields):
             raise ValueError("a field is changed twice")
+        if not self.changes and not self.description.strip():
+            raise ValueError("a fix that changes no field must describe what it does")
         return self
 
 

@@ -86,7 +86,8 @@ def _llm_errors(engine: Engine, since: datetime) -> int:
             conn.execute(
                 text(
                     "SELECT count(*) FROM ops.llm_calls WHERE purpose LIKE 'agent_%' AND outcome = 'error' "
-                    "AND called_at >= :t"
+                    "AND called_at >= :t AND (error LIKE '429%' OR error ~ '^5[0-9][0-9]:' "
+                    "OR error LIKE 'connection error%')"
                 ),
                 {"t": since},
             ).scalar_one()

@@ -183,6 +183,8 @@ def evaluate(resolution: Resolution, facts: ExceptionFacts, policy: Policy | Non
         if protected:
             reasons.append(f"it changes {protected}: {policy.source.quote}")
         return GateVerdict("human_proposal", reasons, resolution)
+    if not fix.changes:
+        reasons.append(f"'{fix.kind}' names no field change to verify")
     if policy.retain_original and not fix.retain_original:
         reasons.append("the original value must be retained")
     if facts.rule_id not in kind.rules:

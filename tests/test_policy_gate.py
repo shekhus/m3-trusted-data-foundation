@@ -79,6 +79,16 @@ def test_the_same_date_reread_in_an_allowed_format_passes() -> None:
     assert verdict.disposition == "apply_after_approval"
 
 
+def test_a_fix_that_changes_no_field_is_described_and_goes_to_a_person() -> None:
+    fix = ProposedFix(kind="exclude_duplicate", retain_original=True, description="keep the first occurrence")
+    verdict = evaluate(_resolution(V009, fix), V009)
+    assert verdict.disposition == "human_proposal"
+    with pytest.raises(ValidationError, match="must describe what it does"):
+        ProposedFix(kind="exclude_duplicate", retain_original=True)
+    empty_allowed_kind = ProposedFix(kind="date_format", retain_original=True, description="re-read dates")
+    assert "names no field change" in " ".join(evaluate(_resolution(V010, empty_allowed_kind), V010).reasons)
+
+
 def test_a_classification_without_a_fix_is_not_a_fix() -> None:
     resolution = _resolution(V004, None, outcome="needs_master_data")
     assert evaluate(resolution, V004).disposition == "no_fix"

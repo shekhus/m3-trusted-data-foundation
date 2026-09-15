@@ -335,5 +335,21 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
     - The first attempt hit Groq's 8,000 tokens-per-minute limit; 83 of 130 model calls returned 429, and those runs fell back.
     - After the wait fix, the rerun exhausted the **200,000 tokens-per-day** quota, and all 56 runs were correctly excluded as transport errors.
     - A valid run uses about 10k tokens (≈3 investigate calls of 2.3k plus 1 classify of 3.2k), so the 56-run eval needs ≈560k tokens.
-    - Results will be recorded here when a quota allows.
+    - **Measured 2026-09-16 on Groq Dev Tier (`scripts/eval_agent.py --per-pattern 3`, 56 runs, 0 transport exclusions, 0 failed runs).**
+      - **Coverage hard gate 17/17 met**: every Cedar Falls pre-June lot fault classified source_defect with not_covered and no fix.
+      - **Accuracy 82% (32/39), target ≥ 85% NOT met.**
+      - **Per rule:** V002, V003, V004, V005, V006, V007 (6/6), V008 and V009 all at 100%; **V001 at 42% (5/12), below the 70% floor.**
+        - V001 blank confirmed date: 3/3 needs_master_data.
+        - V001 blank customer and blank quantity: 0/3 each, answered needs_master_data.
+        - V001 blank item: 2/3, the third a fallback.
+      - **Evidence quality 95%.**
+      - **Tool efficiency:** mean 2.0 tool calls per run, 1/56 hit the 6-call cap.
+      - **Escalations on auto_fixable patterns 0%.**
+      - **Fixes:** 3 proposed (V008), all sent to a person by the gate. 1 fallback.
+    - **Reading of the V001 miss.** The expected source_defect for blank customer, item and quantity is this repo's own label (cited to SOP-DQ-001-v2), not a prior resolution. The only V001 resolutions are "confirmed delivery date blank → needs_master_data", and the agent generalises from exactly those. The label is kept as written. Relabelling after seeing results would tune the key to the agent. The gap is reported, not closed.
+    - **Before the fix, a first Dev Tier run crashed at run 40 on a results-writer bug** (tuple keys in the coverage summary): 28/39 correct, 1/1 coverage.
+      - It exposed two defects, both fixed before the rerun above.
+      - (1) The eval counted Groq's strict-decoding failures (`400 Failed to generate JSON` on the nested nullable `proposed_fix`) as transport errors, which would have excluded agent failures from scoring. Only 429, 5xx and connection errors are transport now.
+      - (2) The classify schema was flattened to `fix_kind` / `fix_changes` / `fix_retain_original` / `fix_description`, and code rebuilds the ProposedFix, because Groq's strict decoder mishandles `anyOf[null, object]`. A fix may now have no field changes when described (e.g. exclude a duplicate), and the gate sends such fixes to a person.
+    - **Earlier attempts on the free tier** (8k TPM, then the 200k TPD quota) measured the provider, not the agent. They are not reported as results.
 
