@@ -150,6 +150,6 @@ Windows: run via Git Bash, or use `python scripts/<name>.py` equivalents listed 
 
 See `docs/plan.md` week table and `docs/decisions.md`. Update the line below at the end of each session:
 
-`STATUS: week 1 — tasks 1-2 done (scaffold; synth imported, deterministic, answer key locked). Next: task 3 migrations, then profiler. Docker install pending (needs admin shell).`
+`STATUS: week 1 — tasks 1-3 done (scaffold; synth imported, deterministic, answer key locked; Postgres migrations for bronze/silver/gold/ops + six ops tables, applied on container start). Docker verified. Next: task 4 profiler → docs/findings.md.`
 
 Plan is now SIX weeks: weeks 1-4 as originally scoped, week 5 retrieval (A14-A18), week 6 the exception agent (A13). See `docs/addendum1.md`.

@@ -11,6 +11,7 @@ that works in PowerShell, CMD, or Git Bash from the repo root. Add a row here wh
 | `make up` | `docker compose up -d --build` |
 | `make down` | `docker compose down` |
 | `make logs` | `docker compose logs -f app` |
+| `make migrate` | `.venv\Scripts\python scripts/migrate.py` (needs `DATABASE_URL`; or `docker compose exec app python scripts/migrate.py`) |
 | `make api` | `.venv\Scripts\python -m uvicorn app.main:app --reload` |
 | `make test` | `.venv\Scripts\python -m pytest` |
 | `make lint` | `.venv\Scripts\python scripts/lint.py` |

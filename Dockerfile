@@ -13,4 +13,5 @@ RUN uv pip install --system --no-cache -r pyproject.toml
 COPY . .
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Migrations run before the API starts; the runner holds an advisory lock, so parallel replicas are safe.
+CMD ["sh", "-c", "python scripts/migrate.py && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]

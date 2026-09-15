@@ -20,7 +20,7 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
 
 - **Decision:** `app/config.py` falls back to `sqlite:///data/m3tdf.sqlite` when `DATABASE_URL` is empty; Docker Compose always sets Postgres.
 - **Alternatives:** Postgres-only (tests require a running database).
-- **Reason:** Docker is not installed on the dev machine yet; unit tests must run without it. **Open question for task 3:** SQLite has no `bronze/silver/gold/ops` schemas — either `ATTACH` one file per schema or run migration tests against Postgres only. *Recorded retroactively from `app/config.py`.*
+- **Reason:** Docker is not installed on the dev machine yet; unit tests must run without it. **Open question for task 3:** SQLite has no `bronze/silver/gold/ops` schemas — either `ATTACH` one file per schema or run migration tests against Postgres only. **Resolved by D-009: Postgres only.** *Recorded retroactively from `app/config.py`.*
 
 ### D-004 · 2026-09-15 · Make targets with `scripts/` equivalents
 
@@ -32,7 +32,7 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
 
 - **Decision:** the app image is `python:3.12-slim`; dependencies install from `pyproject.toml` with `uv pip install --system -r pyproject.toml` (uv 0.11.3, same as the dev machine). Postgres is `postgres:18-alpine`. Compose runs `db` + `app` only; the Streamlit `portal` service is added in week 2 when `portal/` exists.
 - **Alternatives:** `pip install .` (fails: no build backend, flat multi-package layout); Postgres 16/17.
-- **Reason:** tags verified on Docker Hub on 2026-09-15; 18 is the newest major. Installing dependencies without packaging the app avoids adding a build backend just for Docker. **Not yet verified by a real `docker compose up` — Docker is not installed locally.**
+- **Reason:** tags verified on Docker Hub on 2026-09-15; 18 is the newest major. Installing dependencies without packaging the app avoids adding a build backend just for Docker. ~~Not yet verified by a real `docker compose up`.~~ Verified 2026-09-15: image builds, `/healthz` healthy, Postgres 18.6 (see D-009).
 
 ### D-006 · 2026-09-15 · Repo hygiene test for engagement terms
 
@@ -53,3 +53,10 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
 - **Decision:** `truth._achievable_ceiling` iterated a `set`, so key order in `faults.json` changed with `PYTHONHASHSEED` (content identical). Now sorted. `data/` stays gitignored, but `tests/ground_truth.lock` commits sha256 hashes of 95 generated files (ground truth JSON except the timestamped manifest, source extracts, masters, report feeds, KB); `tests/test_ground_truth_lock.py` fails on any drift. Update with `python scripts/lock_ground_truth.py` only for intended changes, logged here.
 - **Alternatives:** commit `data/ground_truth/` itself; trust the seed.
 - **Reason:** CLAUDE.md says never rewrite ground truth; the seed alone did not guarantee that (this bug proved it). Hashes make any change loud without committing 18 MB. Verified: two runs with different `PYTHONHASHSEED` are byte-identical apart from timestamps, and the lock test fails when one file is altered. Parquet is excluded because its bytes depend on the pyarrow version.
+
+### D-009 · 2026-09-15 · Migrations and database tests are Postgres-only; the app container migrates on start
+
+- **Decision:** `db/migrate.py` applies numbered plain-SQL files from `db/migrations/` to Postgres and refuses any other backend. Each file runs in one transaction with its `public.schema_migrations` row (version, name, sha256 of the LF-normalised file); a session advisory lock serialises runners. It refuses an applied file whose checksum changed, an applied file missing from disk, and a new file numbered below the latest applied one. `0001` creates `bronze/silver/gold/ops`; `0002` creates the six ops tables named in CLAUDE.md with the plan §2.4 columns and constraints that encode the contracts (one confirmed mapping per source; one exception per batch × rule × row; a resolved exception needs who/when/what; `rule_id` matches `V###`). `bronze.raw_*`, `silver.*`, `gold.*` and the later ops tables (`tool_calls`, `runs`, `reconciliation`) arrive with their features. Database tests take a fresh throwaway database per test via the `pg_url` fixture and **skip** when Postgres is unreachable; `REQUIRE_POSTGRES=1` turns the skip into a failure (for CI). The Dockerfile runs `scripts/migrate.py` before uvicorn, so `docker compose up` alone yields the schemas (week-1 definition of done).
+- **Alternatives:** one SQLite file per schema via `ATTACH` (tests run without Docker); Alembic; migrate only via `make migrate`.
+- **Reason:** production is Postgres and the schema will use Postgres features (`jsonb`, partial unique indexes, regex checks, `gen_random_uuid`), so SQLite tests would test a different database. Alembic adds autogenerate machinery CLAUDE.md rules out (plain SQL, no ORM schema). Migrating on start is safe under the advisory lock. The SQLite fallback in `app/config.py` (D-003) stays for the API's `/healthz` only and is not migrated.
+- **Verified:** 13 migration tests green against Postgres 18.6 in Compose, including a deliberately broken migration leaving no table and no record (this caught a real bug: SQLAlchemy did not track the transaction opened by the raw psycopg call, so the rollback was a no-op — fixed by beginning the transaction explicitly). From `docker compose down -v`, `docker compose up` applies 0001–0002 and a restart reports "database is up to date". With Postgres down the 7 database tests skip in ~6 s.

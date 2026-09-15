@@ -1,4 +1,4 @@
-.PHONY: synth probe name-check up down logs api test lint
+.PHONY: synth probe name-check up down logs migrate api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
@@ -20,6 +20,9 @@ down:
 
 logs:
 	docker compose logs -f app
+
+migrate:              ## apply db/migrations to DATABASE_URL (Postgres only; the app container also runs this on start)
+	$(PY) scripts/migrate.py
 
 api:                  ## run the API locally (SQLite unless DATABASE_URL is set)
 	$(PY) -m uvicorn app.main:app --reload
