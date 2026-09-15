@@ -1,0 +1,4 @@
+# Editor integrations only. The project linter is ruff (`make lint`, pyproject.toml); this keeps the two in step.
+[flake8]
+max-line-length = 110
+exclude = .venv,data,.git,__pycache__

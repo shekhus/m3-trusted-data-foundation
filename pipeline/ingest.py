@@ -21,6 +21,7 @@ import pandas as pd
 from sqlalchemy import Connection, Engine, text
 
 from pipeline.canonical import BY_NAME, ORDER_LINE
+from pipeline.lineage import record_lineage
 from pipeline.mapper.contract import MappingProposal, header_hash
 from pipeline.transforms import apply
 from pipeline.validate import load_masters, validate_batch
@@ -88,6 +89,7 @@ def build_silver(conn: Connection, batch_id: str) -> None:
                                            "propose and confirm one, then run again"})
         return
     mapping_version_id, mapping = found
+    record_lineage(conn, mapping_version_id)  # backfills mappings confirmed before lineage existed
 
     records = conn.execute(text("SELECT source_row, record FROM bronze.raw_order_lines WHERE batch_id = :id "
                                 "ORDER BY source_row"), {"id": batch_id}).all()

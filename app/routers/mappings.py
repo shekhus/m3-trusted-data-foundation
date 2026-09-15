@@ -16,6 +16,7 @@ from app.config import Settings, get_settings
 from app.db import get_engine
 from app.routers.sources import all_sources
 from llm.client import DbRecorder, LLMClient, build_client
+from pipeline.lineage import record_lineage
 from pipeline.mapper import llm as llm_mapper
 from pipeline.mapper.contract import ColumnMapping, MappingProposal
 from pipeline.profile import profile_source_cached
@@ -194,6 +195,7 @@ def confirm(mapping_version_id: int, principal: Annotated[Principal, Owner],
         conn.execute(text("UPDATE ops.mapping_versions SET status = 'confirmed', confirmed_by = :who, "
                           "confirmed_at = now() WHERE mapping_version_id = :id"),
                      {"who": principal.role, "id": mapping_version_id})
+        record_lineage(conn, mapping_version_id)  # same transaction: no confirmed mapping without lineage
         return _reload(conn, mapping_version_id)
 
 
