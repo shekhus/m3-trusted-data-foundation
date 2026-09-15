@@ -1,12 +1,12 @@
--- Compiled from metrics/otif.v3.yaml by metrics/compiler.py. Do not edit; edit the YAML.
--- otif v3 (current), owner supply_chain_analytics, effective 2026-09-01.
-DROP VIEW IF EXISTS gold.otif_v3_lines CASCADE;
-CREATE VIEW gold.otif_v3_lines AS
+-- Compiled from metrics/otif_date_basis.v1.yaml by metrics/compiler.py. Do not edit; edit the YAML.
+-- otif_date_basis v1 (reference), owner supply_chain_analytics, effective 2026-09-15.
+DROP VIEW IF EXISTS gold.otif_date_basis_v1_lines CASCADE;
+CREATE VIEW gold.otif_date_basis_v1_lines AS
 WITH step_0 AS (
     SELECT * FROM gold.fact_delivery
 ),
 step_1 AS (
-    SELECT step_0.*, COALESCE((issue_date <= confirmed_delivery_date), FALSE) AS on_time
+    SELECT step_0.*, COALESCE((issue_date <= requested_date), FALSE) AS on_time
     FROM step_0
 ),
 step_2 AS (
@@ -27,4 +27,4 @@ step_5 AS (
 )
 SELECT order_no, line_no, issue_date AS metric_date, plant, customer_no, item_no, product_group, order_type, on_time, in_full_count, in_full_weight, in_full, otif
 FROM step_5;
-COMMENT ON VIEW gold.otif_v3_lines IS 'Compiled from metrics/otif.v3.yaml: otif v3 (current). Do not edit.';
+COMMENT ON VIEW gold.otif_date_basis_v1_lines IS 'Compiled from metrics/otif_date_basis.v1.yaml: otif_date_basis v1 (reference). Do not edit.';

@@ -43,8 +43,8 @@ if not sources_reply.ok:
 sources = [s["source"] for s in sources_reply.data]
 
 st.title("Trusted data foundation — mapping console")
-tab_sources, tab_findings, tab_mappings, tab_batches, tab_exceptions = st.tabs(
-    ["Sources & upload", "Findings", "Mappings", "Batches", "Exceptions"])
+tab_sources, tab_findings, tab_mappings, tab_batches, tab_exceptions, tab_reconcile = st.tabs(
+    ["Sources & upload", "Findings", "Mappings", "Batches", "Exceptions", "Reconciliation"])
 
 with tab_sources:
     st.dataframe(pd.DataFrame(sources_reply.data), hide_index=True, width="stretch")
@@ -208,6 +208,43 @@ with tab_batches:
         st.dataframe(pd.DataFrame(reply.data), hide_index=True, width="stretch")
     else:
         show_error(reply)
+
+
+with tab_reconcile:
+    run_help = "Compare consumer views and explain BI tool gaps on published gold."
+    if st.button("Run reconciliation", help=run_help):
+        reply = api.reconcile()
+        if not reply.ok:
+            show_error(reply)
+    latest = api.reconciliation()
+    if not latest.ok:
+        st.info("No reconciliation run yet." if latest.status == 404 else latest.error)
+    else:
+        run_data = latest.data
+        colour = {"green": "🟢", "red": "🔴", "no_data": "⚪"}[run_data["status"]]
+        st.subheader(f"{colour} Run {run_data['run_id']}: {run_data['status']}")
+        consumers = pd.DataFrame(run_data["consumers"])
+        if not consumers.empty:
+            otif = consumers[consumers["metric"] == "otif"]
+            grid = otif.pivot_table(index="period", columns="grain_key", values="status", aggfunc="first")
+            st.caption("Two current OTIF consumer views, rolled up to month × plant (green = identical):")
+            st.dataframe(grid.replace({"green": "🟢", "red": "🔴"}), width="stretch")
+            st.caption("Legacy view gap (v2 count basis − governed v3), by period:")
+            legacy_gap = otif.pivot_table(index="period", columns="grain_key", values="legacy_delta")
+            st.dataframe(legacy_gap.round(4), width="stretch")
+        for tool, s in run_data["summary"].get("tools", {}).items():
+            with st.container(border=True):
+                st.markdown(f"**{tool}**: identified causes {', '.join(s['identified_causes']) or 'none'}; "
+                            f"undetermined {', '.join(s['undetermined_causes']) or 'none'}; "
+                            f"dominant **{s['dominant_cause']}**; "
+                            f"export reproduced {s['export_match_share']:.1%}")
+                rows = pd.DataFrame([t for t in run_data["tools"] if t["tool"] == tool])
+                if not rows.empty:
+                    detail = rows[["period", "governed", "measured", "gap", "gap_flagged"]].copy()
+                    detail = pd.concat([detail, pd.json_normalize(list(rows["contributions"]))], axis=1)
+                    st.dataframe(detail.round(5), hide_index=True, width="stretch")
+            st.caption("Contributions are single-switch deltas from governed; they interact and do not "
+                       "sum to the gap.")
 
 
 def _label(items: list[dict], exception_id: int) -> str:

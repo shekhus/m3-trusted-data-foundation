@@ -2,18 +2,13 @@ from __future__ import annotations
 
 import json
 import math
-import uuid
-from collections.abc import Iterator
 from pathlib import Path
 
 import pandas as pd
-import psycopg
 import pytest
-from sqlalchemy import Engine, create_engine, text
-from sqlalchemy.engine import make_url
+from sqlalchemy import Engine, text
 
 from app.config import REPO_ROOT
-from db.migrate import migrate
 from metrics.compiler import (
     COMPILED_DIR,
     CompiledMetric,
@@ -22,6 +17,7 @@ from metrics.compiler import (
     aggregate_sql,
     apply,
     compile_all,
+    compile_consumers,
     compile_metric,
     load,
 )
@@ -49,6 +45,9 @@ def test_repo_metrics_compile_and_committed_sql_is_current() -> None:
     for c in compiled:
         committed = COMPILED_DIR / f"{c.definition.metric}_v{c.definition.version}.sql"
         assert committed.read_text(encoding="utf-8") == c.ddl, f"{committed.name} stale: run `make metrics`"
+    consumers = compile_consumers(compiled)
+    assert (COMPILED_DIR / "consumers.sql").read_text(encoding="utf-8") == consumers.ddl, \
+        "consumers.sql stale: run `make metrics`"
 
 
 def test_rules_render_in_order_with_params_inlined() -> None:
@@ -118,38 +117,10 @@ def test_unknown_group_by_rejected() -> None:
 
 
 @pytest.fixture(scope="module")
-def gold_engine(pg_admin: Engine) -> Iterator[Engine]:
-    if not (DATA / "gold" / "fact_delivery.parquet").exists():
-        pytest.skip("data/ not generated (run `make synth`)")
-    name = f"m3tdf_test_{uuid.uuid4().hex[:12]}"
-    with pg_admin.connect() as conn:
-        conn.execute(text(f'CREATE DATABASE "{name}"'))
-    url = pg_admin.url.set(database=name).render_as_string(hide_password=False)
-    try:
-        migrate(url)
-        _load_fact_delivery(url)
-        engine = create_engine(url)
-        with engine.begin() as conn:
-            apply(conn, compile_all())
-        yield engine
-        engine.dispose()
-    finally:
-        with pg_admin.connect() as conn:
-            conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
-
-
-def _load_fact_delivery(url: str) -> None:
-    fact = pd.read_parquet(DATA / "gold" / "fact_delivery.parquet")
-    dsn = make_url(url).set(drivername="postgresql").render_as_string(hide_password=False)
-    with psycopg.connect(dsn) as pg:
-        cols = [r[0] for r in pg.execute(
-            "SELECT column_name FROM information_schema.columns WHERE table_schema = 'gold' "
-            "AND table_name = 'fact_delivery' ORDER BY ordinal_position").fetchall()]
-        cols = [c for c in cols if c in fact.columns]  # provenance columns (batch_id, …) stay NULL
-        rows = fact[cols].astype(object).where(fact[cols].notna(), None)
-        with pg.cursor().copy(f"COPY gold.fact_delivery ({', '.join(cols)}) FROM STDIN") as copy:
-            for row in rows.itertuples(index=False, name=None):
-                copy.write_row([None if v == "" else v for v in row])
+def gold_engine(generator_gold: Engine) -> Engine:
+    with generator_gold.begin() as conn:
+        apply(conn, compile_all())
+    return generator_gold
 
 
 def _query(engine: Engine, sql: str) -> pd.DataFrame:

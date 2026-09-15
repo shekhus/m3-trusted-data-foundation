@@ -1,0 +1,27 @@
+metric: otif_case_tolerance
+version: 1
+status: reference
+owner: supply_chain_analytics
+changed_by: data_governance
+effective_from: 2026-09-15
+grain: order_line
+source: gold.fact_delivery
+key: [order_no, line_no]
+period: issue_date
+dimensions: [plant, customer_no, item_no, product_group, order_type]
+params:
+  case_tolerance: 0.02
+inputs:
+  on_time: "issue_date <= confirmed_delivery_date"
+  in_full_count_tolerance: "invoiced_qty >= ordered_qty * (1 - case_tolerance)"
+rules:
+  in_full: "in_full_count_tolerance"
+  otif: "on_time and in_full"
+aggregations:
+  lines: "count(*)"
+  otif_lines: "sum(otif)"
+  otif_rate: "sum(otif) / count(*)"
+notes: >-
+  Reference only, never a report. Governed on-time with in full on case count allowing a 2% case shortfall for
+  every item (catch-weight included). Used by reconciliation to size a tool's case-tolerance gap; the dashboard
+  BI tool is documented to allow a 2% case shortfall.

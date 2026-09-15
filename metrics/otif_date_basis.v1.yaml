@@ -1,18 +1,18 @@
-metric: otif
-version: 3
-status: current
+metric: otif_date_basis
+version: 1
+status: reference
 owner: supply_chain_analytics
 changed_by: data_governance
-effective_from: 2026-09-01
+effective_from: 2026-09-15
 grain: order_line
 source: gold.fact_delivery
 key: [order_no, line_no]
 period: issue_date
 dimensions: [plant, customer_no, item_no, product_group, order_type]
 params:
-  tolerance_weight: 0.02          # catch-weight items
+  tolerance_weight: 0.02
 inputs:
-  on_time: "issue_date <= confirmed_delivery_date"
+  on_time: "issue_date <= requested_date"
   in_full_count: "invoiced_qty >= ordered_qty"
   in_full_weight: "invoiced_weight_lb >= ordered_weight_lb * (1 - tolerance_weight)"
 rules:
@@ -21,11 +21,8 @@ rules:
 aggregations:
   lines: "count(*)"
   otif_lines: "sum(otif)"
-  on_time_lines: "sum(on_time)"
-  in_full_lines: "sum(in_full)"
   otif_rate: "sum(otif) / count(*)"
-  on_time_rate: "sum(on_time) / count(*)"
-  in_full_rate: "sum(in_full) / count(*)"
 notes: >-
-  v3 switched catch-weight items from count to weight basis (2% tolerance). v2 used count for all items.
-  On time is measured against the confirmed delivery date, all order types are in scope.
+  Reference only, never a report. Governed OTIF v3 with one switch: on time is measured against the date the
+  customer requested instead of the confirmed delivery date. Used by reconciliation to size a tool's date-basis
+  gap. The dashboard BI tool is documented to measure this way.

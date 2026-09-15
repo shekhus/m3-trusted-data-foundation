@@ -90,3 +90,9 @@ class Api:
 
     def publish(self, source: str) -> Reply:
         return self._call("POST", f"/publish/{source}")
+
+    def reconcile(self) -> Reply:
+        return self._call("POST", "/reconcile")
+
+    def reconciliation(self) -> Reply:
+        return self._call("GET", "/reconcile/latest")

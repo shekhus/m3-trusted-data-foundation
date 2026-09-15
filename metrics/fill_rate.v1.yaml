@@ -14,6 +14,9 @@ aggregations:
   fill_rate_count: "sum(invoiced_qty) / sum(ordered_qty)"
   fill_rate_weight: "sum(invoiced_weight_lb) / sum(ordered_weight_lb)"
   ordered_weight_lb: "sum(ordered_weight_lb)"
+  invoiced_weight_lb: "sum(invoiced_weight_lb)"
+  ordered_qty: "sum(ordered_qty)"
+  invoiced_qty: "sum(invoiced_qty)"
 notes: >-
   Ratio of totals, not an average of line ratios, so large lines weigh more. Undefined (null) when the
   denominator is zero.

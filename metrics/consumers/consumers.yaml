@@ -1,0 +1,48 @@
+# Consumer views (docs/plan.md A10). Each is compiled from a metric version in metrics/*.yaml; no report SQL is
+# written by hand. Two current consumers of each governed metric read it at different grains for different
+# audiences and must agree exactly when rolled up to a shared grain; the legacy view uses the superseded
+# definition on purpose so the before/after gap stays visible.
+consumers:
+  - name: ops_otif_monthly_plant
+    metric: otif
+    version: 3
+    group_by: [month, plant]
+    audience: plant operations monthly review
+  - name: sales_otif_daily_customer
+    metric: otif
+    version: 3
+    group_by: [day, plant, customer_no]
+    audience: customer service daily lane report
+  - name: legacy_otif_monthly_plant
+    metric: otif
+    version: 2
+    group_by: [month, plant]
+    audience: legacy report suite (count basis), kept for comparison
+    legacy: true
+  - name: ops_fill_rate_monthly_plant
+    metric: fill_rate
+    version: 1
+    group_by: [month, plant]
+    audience: plant operations monthly review
+  - name: sales_fill_rate_daily_customer
+    metric: fill_rate
+    version: 1
+    group_by: [day, plant, customer_no]
+    audience: customer service daily lane report
+
+reconcile:
+  - metric: otif
+    measure: otif_rate
+    numerator: otif_lines
+    denominator: lines
+    a: ops_otif_monthly_plant
+    b: sales_otif_daily_customer
+    legacy: legacy_otif_monthly_plant
+    grain: [month, plant]
+  - metric: fill_rate
+    measure: fill_rate_weight
+    numerator: invoiced_weight_lb
+    denominator: ordered_weight_lb
+    a: ops_fill_rate_monthly_plant
+    b: sales_fill_rate_daily_customer
+    grain: [month, plant]

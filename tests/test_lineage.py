@@ -16,7 +16,14 @@ from pipeline.lineage import backfill, record_lineage, views_using
 
 DATA = REPO_ROOT / "data"
 KEYS = {"k-viewer": "viewer", "k-analyst": "analyst", "k-owner": "owner"}
-ALL_VIEWS = ["gold.fill_rate_v1_lines", "gold.otif_v2_lines", "gold.otif_v3_lines"]
+CONSUMERS = ["gold.consumer_legacy_otif_monthly_plant", "gold.consumer_ops_fill_rate_monthly_plant",
+             "gold.consumer_ops_otif_monthly_plant", "gold.consumer_sales_fill_rate_daily_customer",
+             "gold.consumer_sales_otif_daily_customer"]
+ALL_VIEWS = [*CONSUMERS, "gold.fill_rate_v1_lines", "gold.otif_case_tolerance_v1_lines",
+             "gold.otif_date_basis_v1_lines", "gold.otif_v2_lines", "gold.otif_v3_lines"]
+# weight-based: every view except the count-based legacy v2, its consumer, and the count-tolerance reference
+WEIGHT_VIEWS = [*CONSUMERS[1:], "gold.fill_rate_v1_lines", "gold.otif_date_basis_v1_lines",
+                "gold.otif_v3_lines"]
 
 
 # --- views derived from metrics/*.yaml ---------------------------------------------------
@@ -26,8 +33,9 @@ ALL_VIEWS = ["gold.fill_rate_v1_lines", "gold.otif_v2_lines", "gold.otif_v3_line
     ("gold_col", "views"),
     [
         ("customer_no", ALL_VIEWS),  # a dimension of every metric
-        ("invoiced_weight_lb", ["gold.fill_rate_v1_lines", "gold.otif_v3_lines"]),  # v2 is count-based
+        ("invoiced_weight_lb", WEIGHT_VIEWS),  # v2 is count-based
         ("invoiced_qty", ALL_VIEWS),
+        ("requested_date", ["gold.otif_date_basis_v1_lines"]),  # only the reference definition
         ("lot_no", []),  # no metric reads it yet
     ],
 )
@@ -101,7 +109,7 @@ def test_impact_distinguishes_weight_from_count_metrics_and_unused_columns(
         client: tuple[TestClient, str]) -> None:
     test_client, _ = client
     weight = _get(test_client, "/lineage/impact", source="plt02", source_col="WT_SHIP_KG").json()
-    assert weight["views"] == ["gold.fill_rate_v1_lines", "gold.otif_v3_lines"]
+    assert weight["views"] == WEIGHT_VIEWS
     lot = _get(test_client, "/lineage/impact", source="plt02", source_col="LOTID").json()
     assert lot["gold_columns"] == ["gold.fact_delivery.lot_no"] and lot["views"] == []
     assert _get(test_client, "/lineage/impact", source="plt02", source_col="nope").status_code == 404

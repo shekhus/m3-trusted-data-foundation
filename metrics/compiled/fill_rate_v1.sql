@@ -1,6 +1,6 @@
 -- Compiled from metrics/fill_rate.v1.yaml by metrics/compiler.py. Do not edit; edit the YAML.
 -- fill_rate v1 (current), owner supply_chain_analytics, effective 2025-03-01.
-DROP VIEW IF EXISTS gold.fill_rate_v1_lines;
+DROP VIEW IF EXISTS gold.fill_rate_v1_lines CASCADE;
 CREATE VIEW gold.fill_rate_v1_lines AS
 WITH step_0 AS (
     SELECT * FROM gold.fact_delivery

@@ -16,7 +16,15 @@ from sqlalchemy import create_engine  # noqa: E402
 
 from app.config import get_settings  # noqa: E402
 from db.migrate import MigrationError, require_postgres  # noqa: E402
-from metrics.compiler import CompileError, apply, compile_all, write_compiled  # noqa: E402
+from metrics.compiler import (  # noqa: E402
+    CompileError,
+    apply,
+    apply_consumers,
+    compile_all,
+    compile_consumers,
+    write_compiled,
+    write_consumers,
+)
 
 
 def main() -> int:
@@ -25,7 +33,8 @@ def main() -> int:
     args = parser.parse_args()
     try:
         compiled = compile_all()
-        for path in write_compiled(compiled):
+        consumers = compile_consumers(compiled)
+        for path in [*write_compiled(compiled), write_consumers(consumers)]:
             print(f"compiled {path.relative_to(REPO_ROOT).as_posix()}")
         if args.apply:
             url = get_settings().database_url
@@ -33,6 +42,7 @@ def main() -> int:
             engine = create_engine(url)
             with engine.begin() as conn:
                 apply(conn, compiled)
+                apply_consumers(conn, consumers)
             engine.dispose()
             print(f"applied {len(compiled)} views")
     except (CompileError, MigrationError) as exc:

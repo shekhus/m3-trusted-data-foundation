@@ -2,8 +2,9 @@
 
 `record_lineage` writes one ops.lineage row per mapped column of a confirmed mapping version (idempotent; kept
 for superseded versions so history stays traceable). `impact` answers the drift question — if this source
-column breaks, which gold columns and which consumer views are affected — and `upstream` the reverse. Views
-are derived from metrics/*.yaml via the compiler, never listed by hand, so a new metric is covered.
+column breaks, which gold columns and which metric and consumer views are affected — and `upstream` the
+reverse. Views are derived from metrics/*.yaml and metrics/consumers/consumers.yaml via the compiler, never
+listed by hand, so a new metric or consumer is covered.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from functools import cache
 
 from sqlalchemy import Connection, text
 
-from metrics.compiler import compile_all
+from metrics.compiler import compile_all, compile_consumers
 from pipeline.canonical import ORDER_LINE
 
 SILVER_TABLE = "silver.order_lines"
@@ -99,9 +100,22 @@ def _view_columns() -> tuple[tuple[str, str, frozenset[str]], ...]:
     return tuple((c.definition.view, c.definition.source, frozenset(c.source_columns)) for c in compile_all())
 
 
+@cache
+def _consumers_of() -> dict[str, tuple[str, ...]]:
+    """Metric view → the consumer views compiled on top of it (metrics/consumers/consumers.yaml)."""
+    metrics = compile_all()
+    views = {(m.definition.metric, m.definition.version): m.definition.view for m in metrics}
+    out: dict[str, list[str]] = {}
+    for consumer in compile_consumers(metrics).catalog.consumers:
+        out.setdefault(views[(consumer.metric, consumer.version)], []).append(consumer.view)
+    return {view: tuple(consumers) for view, consumers in out.items()}
+
+
 def views_using(gold_table: str, gold_col: str) -> list[str]:
-    return sorted(view for view, table, columns in _view_columns()
-                  if table == gold_table and gold_col in columns)
+    """Metric views reading the column, and the consumer views built on those metric views."""
+    metric_views = {view for view, table, columns in _view_columns()
+                    if table == gold_table and gold_col in columns}
+    return sorted(metric_views | {c for v in metric_views for c in _consumers_of().get(v, ())})
 
 
 def impact(conn: Connection, source: str, source_col: str, include_superseded: bool = False) -> Impact:

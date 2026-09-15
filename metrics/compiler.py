@@ -8,7 +8,8 @@ so a definition can never smuggle arbitrary SQL into a view.
 Each metric version compiles to one row-level view, `gold.<metric>_v<version>_lines`: key, `metric_date`
 (the period column), dimensions, the columns its aggregations need, and every input/rule as a boolean.
 A missing input makes a flag FALSE, never NULL — a line with no confirmed date is not on time.
-`aggregate_sql()` builds the grouped query consumer views and reconciliation are compiled from.
+`aggregate_sql()` builds the grouped query consumer views and reconciliation are compiled from;
+`compile_consumers()` turns metrics/consumers/consumers.yaml into those views.
 """
 
 from __future__ import annotations
@@ -45,7 +46,7 @@ class MetricDefinition(BaseModel):
 
     metric: Identifier
     version: int = Field(gt=0)
-    status: Literal["current", "legacy"]
+    status: Literal["current", "legacy", "reference"]  # reference: a definition used only to explain gaps
     owner: str
     changed_by: str
     effective_from: date
@@ -216,7 +217,7 @@ def compile_metric(d: MetricDefinition, source_file: str) -> CompiledMetric:
               f"-- {d.metric} v{d.version} ({d.status}), owner {d.owner}, effective {d.effective_from}.\n")
     cte = ",\n".join([f"step_0 AS (\n    SELECT * FROM {d.source}\n)", *steps])
     statements = [
-        f"{header}DROP VIEW IF EXISTS {d.view}",
+        f"{header}DROP VIEW IF EXISTS {d.view} CASCADE",  # consumer views on it are re-created after
         f"CREATE VIEW {d.view} AS\nWITH {cte}\nSELECT {', '.join(select)}\nFROM {previous}",
         f"COMMENT ON VIEW {d.view} IS 'Compiled from metrics/{source_file}: {d.metric} v{d.version} "
         f"({d.status}). Do not edit.'",
@@ -280,3 +281,112 @@ def apply(conn: Connection, compiled: list[CompiledMetric]) -> None:
             raise CompileError(f"{c.source_file}: {c.definition.source} has no column(s) {missing}")
         for statement in c.statements:
             conn.execute(text(statement))
+
+
+# --- consumer views (plan A10): what reports read, compiled from the dictionary, never hand-written ------
+
+CONSUMERS_FILE = METRICS_DIR / "consumers" / "consumers.yaml"
+
+
+class ConsumerView(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: Identifier
+    metric: Identifier
+    version: int = Field(gt=0)
+    group_by: list[str] = Field(min_length=1)
+    audience: str
+    legacy: bool = False
+
+    @property
+    def view(self) -> str:
+        return f"gold.consumer_{self.name}"
+
+
+class ReconcilePair(BaseModel):
+    """Two current consumers of one metric that must agree at a shared grain, plus the legacy view."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    metric: Identifier
+    measure: Identifier  # the rate being compared
+    numerator: Identifier  # aggregation summed at the shared grain
+    denominator: Identifier
+    a: Identifier
+    b: Identifier
+    legacy: Identifier | None = None
+    grain: list[Literal["month", "plant", "customer_no", "product_group"]] = Field(min_length=1)
+
+
+class ConsumerCatalog(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    consumers: list[ConsumerView]
+    reconcile: list[ReconcilePair]
+
+
+@dataclass(frozen=True)
+class CompiledConsumers:
+    catalog: ConsumerCatalog
+    statements: list[str]
+
+    @property
+    def ddl(self) -> str:
+        return "\n".join(s + ";" for s in self.statements) + "\n"
+
+    def consumer(self, name: str) -> ConsumerView:
+        return next(c for c in self.catalog.consumers if c.name == name)
+
+
+def compile_consumers(metrics: list[CompiledMetric], path: Path = CONSUMERS_FILE) -> CompiledConsumers:
+    try:
+        catalog = ConsumerCatalog.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    except ValidationError as exc:
+        raise CompileError(f"{path.name}: {exc}") from exc
+    by_version = {(m.definition.metric, m.definition.version): m for m in metrics}
+    names = [c.name for c in catalog.consumers]
+    if len(set(names)) != len(names):
+        raise CompileError(f"{path.name}: consumer names must be unique")
+    statements = [f"-- Compiled from metrics/consumers/{path.name} by metrics/compiler.py. Do not edit."]
+    for consumer in catalog.consumers:
+        metric = by_version.get((consumer.metric, consumer.version))
+        if metric is None:
+            raise CompileError(f"consumer {consumer.name}: no metric {consumer.metric} v{consumer.version}")
+        if consumer.legacy != (metric.definition.status == "legacy"):
+            raise CompileError(f"consumer {consumer.name}: legacy flag must match {consumer.metric} "
+                               f"v{consumer.version} status '{metric.definition.status}'")
+        if metric.definition.status == "reference":
+            raise CompileError(f"consumer {consumer.name}: reference definitions are not for reports")
+        select = aggregate_sql(metric, consumer.group_by).split("\nORDER BY")[0]
+        statements += [f"DROP VIEW IF EXISTS {consumer.view}",
+                       f"CREATE VIEW {consumer.view} AS\n{select}",
+                       f"COMMENT ON VIEW {consumer.view} IS 'Consumer {consumer.name} ({consumer.audience}): "
+                       f"{consumer.metric} v{consumer.version}. Compiled; do not edit.'"]
+    for pair in catalog.reconcile:
+        for side in (pair.a, pair.b, pair.legacy):
+            if side is None:
+                continue
+            if side not in names:
+                raise CompileError(f"reconcile {pair.metric}: unknown consumer '{side}'")
+            consumer = next(c for c in catalog.consumers if c.name == side)
+            metric = by_version[(consumer.metric, consumer.version)]
+            if consumer.metric != pair.metric:
+                raise CompileError(f"reconcile {pair.metric}: consumer '{side}' reads {consumer.metric}")
+            missing = {pair.numerator, pair.denominator} - set(metric.definition.aggregations)
+            if missing:
+                raise CompileError(f"reconcile {pair.metric}: {side} lacks aggregations {sorted(missing)}")
+            coarse = {"month" if g == "day" else g for g in consumer.group_by}
+            if not set(pair.grain) <= coarse:
+                raise CompileError(f"reconcile {pair.metric}: {side} cannot roll up to {pair.grain}")
+    return CompiledConsumers(catalog, statements)
+
+
+def write_consumers(compiled: CompiledConsumers, out_dir: Path = COMPILED_DIR) -> Path:
+    out = out_dir / "consumers.sql"
+    out.write_text(compiled.ddl, encoding="utf-8", newline="\n")
+    return out
+
+
+def apply_consumers(conn: Connection, compiled: CompiledConsumers) -> None:
+    for statement in compiled.statements[1:]:
+        conn.execute(text(statement))

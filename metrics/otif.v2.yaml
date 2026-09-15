@@ -17,6 +17,9 @@ rules:
   otif: "on_time and in_full"
 aggregations:
   lines: "count(*)"
+  otif_lines: "sum(otif)"
+  on_time_lines: "sum(on_time)"
+  in_full_lines: "sum(in_full)"
   otif_rate: "sum(otif) / count(*)"
   on_time_rate: "sum(on_time) / count(*)"
   in_full_rate: "sum(in_full) / count(*)"

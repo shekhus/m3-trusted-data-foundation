@@ -125,3 +125,37 @@ def loaded(silver_db: Engine, generated_profiles: dict[str, SourceProfile]) -> L
     resumed = [ingest_file(silver_db, "plt01", by_name[b.file_name], DATA / "master")
                for b in first["plt01"] if b.status == "blocked"]
     return Loaded(first, resumed)
+
+
+@pytest.fixture(scope="session")
+def generator_gold(pg_admin: Engine) -> Iterator[Engine]:
+    """A migrated database whose gold.fact_delivery holds the generator's clean gold — the population the
+    answer keys (metric series, reconciliation.json) were computed on."""
+    if not (DATA / "gold" / "fact_delivery.parquet").exists():
+        pytest.skip("data/ not generated (run `make synth`)")
+    import pandas as pd
+    import psycopg
+
+    name = f"m3tdf_test_{uuid.uuid4().hex[:12]}"
+    with pg_admin.connect() as conn:
+        conn.execute(text(f'CREATE DATABASE "{name}"'))
+    url = pg_admin.url.set(database=name).render_as_string(hide_password=False)
+    engine = create_engine(url)
+    try:
+        migrate(url)
+        fact = pd.read_parquet(DATA / "gold" / "fact_delivery.parquet")
+        dsn = make_url(url).set(drivername="postgresql").render_as_string(hide_password=False)
+        with psycopg.connect(dsn) as pg:
+            cols = [r[0] for r in pg.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = 'gold' "
+                "AND table_name = 'fact_delivery' ORDER BY ordinal_position").fetchall()]
+            cols = [col for col in cols if col in fact.columns]  # provenance columns stay NULL
+            rows = fact[cols].astype(object).where(fact[cols].notna(), None)
+            with pg.cursor().copy(f"COPY gold.fact_delivery ({', '.join(cols)}) FROM STDIN") as copy:
+                for row in rows.itertuples(index=False, name=None):
+                    copy.write_row([None if v == "" else v for v in row])
+        yield engine
+    finally:
+        engine.dispose()
+        with pg_admin.connect() as conn:
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))

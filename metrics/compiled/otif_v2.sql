@@ -1,6 +1,6 @@
 -- Compiled from metrics/otif.v2.yaml by metrics/compiler.py. Do not edit; edit the YAML.
 -- otif v2 (legacy), owner supply_chain_analytics, effective 2024-01-01.
-DROP VIEW IF EXISTS gold.otif_v2_lines;
+DROP VIEW IF EXISTS gold.otif_v2_lines CASCADE;
 CREATE VIEW gold.otif_v2_lines AS
 WITH step_0 AS (
     SELECT * FROM gold.fact_delivery

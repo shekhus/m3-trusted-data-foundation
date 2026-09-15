@@ -1,4 +1,4 @@
-.PHONY: synth probe profile metrics eval-mapping silver ingest eval-exceptions eval-drift portal name-check up down logs migrate api test lint
+.PHONY: synth probe profile metrics eval-mapping silver ingest eval-exceptions eval-drift reconcile portal name-check up down logs migrate api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
@@ -29,6 +29,9 @@ eval-exceptions:      ## exception recall/precision of the loaded sources vs fau
 
 eval-drift:           ## drift alerts in the database vs drift.json (2/2 detected and named, false alerts)
 	$(PY) scripts/eval_drift.py
+
+reconcile:            ## reconciliation job on published gold: consumer views agree, BI tool gaps by cause; scored
+	$(PY) scripts/reconcile.py
 
 portal:               ## Streamlit mapping console on http://localhost:8501 (needs the API running)
 	$(PY) -m streamlit run portal/app.py
