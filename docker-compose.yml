@@ -29,6 +29,9 @@ services:
       LLM_PROVIDER: ${LLM_PROVIDER:-none}
       LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      LLM_PRICE_IN_PER_MTOK: ${LLM_PRICE_IN_PER_MTOK:-0}
+      LLM_PRICE_OUT_PER_MTOK: ${LLM_PRICE_OUT_PER_MTOK:-0}
       DATA_DIR: data
       SOURCE_SLA_HOURS: ${SOURCE_SLA_HOURS:-72}
     volumes:

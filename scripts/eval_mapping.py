@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -40,6 +41,9 @@ def _recorder(database_url: str) -> Recorder:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--llm", action="store_true", help="also score the LLM mapper (paid API calls)")
+    parser.add_argument("--pace", type=float, default=0.0,
+                        help="seconds to wait between LLM headers (e.g. 60 on a tokens-per-minute free tier)")
+    parser.add_argument("--case", help="only this case, e.g. mapping_unseen_headers")
     args = parser.parse_args()
     settings = get_settings()
     if not (settings.data_dir / "ground_truth" / "mappings.json").exists():
@@ -47,6 +51,11 @@ def main() -> int:
         return 1
 
     cases = build_cases(settings.data_dir, REPO_ROOT / "evals" / "cases")
+    if args.case:
+        cases = [c for c in cases if c.name == args.case]
+        if not cases:
+            print(f"eval-mapping: no case named {args.case}", file=sys.stderr)
+            return 1
     heuristic_scores = [score(c, propose(c.profile, c.header)) for c in cases]
     scores: dict[str, list[HeaderScore]] = {"heuristic": heuristic_scores}
     llm_report: dict = {"run": False}
@@ -58,7 +67,9 @@ def main() -> int:
         else:
             llm_scores: list[HeaderScore] = []
             fallbacks: list[dict] = []
-            for case in cases:
+            for n, case in enumerate(cases):
+                if n and args.pace:
+                    time.sleep(args.pace)
                 # no confirmed examples: the unseen case is PLT-01's data, so examples would leak the answer
                 result = llm_mapper.propose(case.profile, case.header, client)
                 if result.used_llm:
@@ -86,7 +97,8 @@ def main() -> int:
             for error in hs.errors:
                 print(f"  miss [{proposer} {hs.case} {hs.source} {hs.first_file}] {error}")
 
-    out = REPO_ROOT / "evals" / "results" / f"mapping_{date.today().isoformat()}.json"
+    suffix = f"_{args.case}" if args.case else ""
+    out = REPO_ROOT / "evals" / "results" / f"mapping_{date.today().isoformat()}{suffix}.json"
     detail = {name: [{"case": s.case, "source": s.source, "first_file": s.first_file, "columns": s.columns,
                       "correct": s.correct, "errors": s.errors} for s in header_scores]
               for name, header_scores in scores.items()}

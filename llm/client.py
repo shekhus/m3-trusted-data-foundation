@@ -1,21 +1,25 @@
 """The only way this repo calls an LLM (CLAUDE.md coding conventions).
 
-One provider sits behind `Backend`. `LLMClient.complete_json` makes a single request with a JSON schema as the
-output format, parses it with the caller's contract, and records the attempt (ok, invalid_output or error)
-to ops.llm_calls with model, prompt hash, tokens, latency and cost. It never retries on its own;
-callers decide (the mapper retries an invalid answer once, then falls back to the heuristic).
+One provider at a time sits behind `Backend` (anthropic or groq, chosen by LLM_PROVIDER).
+`LLMClient.complete_json` makes a single request with a JSON schema as the output format, parses it with
+the caller's contract, and records the attempt (ok, invalid_output or error) to ops.llm_calls with model,
+prompt hash, tokens, latency and cost. It never retries an answer on its own; callers decide (the mapper
+retries an invalid answer once, then falls back to the heuristic). The Groq backend waits out one short
+rate limit, which is transport, not a second answer.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Protocol, TypeVar
 
+import httpx
 from sqlalchemy import Engine, text
 
 from app.config import Settings
@@ -119,6 +123,72 @@ class AnthropicBackend:
                           str(response.stop_reason))
 
 
+MAX_RATE_LIMIT_WAIT_S = 30.0
+
+
+def _retry_after_seconds(response: httpx.Response) -> float | None:
+    try:
+        return float(response.headers["retry-after"]) + 0.5
+    except (KeyError, ValueError):
+        return None
+
+
+class GroqBackend:
+    """Groq's OpenAI-compatible chat completions with strict JSON-schema output (constrained decoding).
+
+    Called with httpx (already a dependency) rather than an extra SDK. Strict mode guarantees the JSON matches
+    the schema; the caller's contract still checks what a schema cannot (every header column once, no
+    duplicate targets), so invalid answers remain possible and are handled by the caller.
+    """
+
+    provider = "groq"
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
+    def __init__(self, model: str, api_key: str, http: httpx.Client | None = None,
+                 sleep: Callable[[float], None] = time.sleep) -> None:
+        if not api_key:
+            raise ValueError("GROQ_API_KEY is not set")
+        self.model = model
+        self._key = api_key
+        self._http = http or httpx.Client(timeout=120.0)
+        self._sleep = sleep
+
+    def _post(self, body: dict) -> httpx.Response:
+        try:
+            return self._http.post(self.url, json=body, headers={"Authorization": f"Bearer {self._key}"})
+        except httpx.HTTPError as exc:
+            raise LLMError(f"connection error: {exc}") from exc
+
+    def complete(self, system: str, user: str, schema: dict, max_tokens: int) -> Completion:
+        body = {
+            "model": self.model,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "max_completion_tokens": max_tokens,
+            "response_format": {"type": "json_schema",
+                                "json_schema": {"name": "answer", "strict": True, "schema": schema}},
+        }
+        response = self._post(body)
+        if response.status_code == 429:  # tokens-per-minute limit on the free tier: wait once if short
+            wait = _retry_after_seconds(response)
+            if wait is not None and wait <= MAX_RATE_LIMIT_WAIT_S:
+                self._sleep(wait)
+                response = self._post(body)
+        request_id = response.headers.get("x-request-id", "")
+        if not response.is_success:
+            try:
+                message = response.json().get("error", {}).get("message", response.text)
+            except ValueError:
+                message = response.text
+            raise LLMError(f"{response.status_code}: {message[:500]} (request {request_id})")
+        data = response.json()
+        choice = data["choices"][0]
+        if choice.get("finish_reason") != "stop":
+            raise LLMError(f"finish_reason={choice.get('finish_reason')} (request {request_id})")
+        usage = data.get("usage", {})
+        return Completion(choice["message"].get("content") or "", int(usage.get("prompt_tokens", 0)),
+                          int(usage.get("completion_tokens", 0)), str(choice["finish_reason"]))
+
+
 class LLMClient:
     def __init__(self, backend: Backend, recorder: Recorder, price_in_per_mtok: float,
                  price_out_per_mtok: float) -> None:
@@ -160,11 +230,16 @@ class LLMClient:
 
 def build_client(settings: Settings, recorder: Recorder) -> LLMClient | None:
     """None when LLM_PROVIDER=none: callers then use the heuristic only."""
+    backend: Backend
     if settings.llm_provider == "none":
         return None
-    if settings.llm_provider != "anthropic":
-        raise ValueError(f"unsupported LLM_PROVIDER '{settings.llm_provider}' (supported: anthropic, none)")
-    backend = AnthropicBackend(settings.llm_model)
+    if settings.llm_provider == "anthropic":
+        backend = AnthropicBackend(settings.llm_model)
+    elif settings.llm_provider == "groq":
+        backend = GroqBackend(settings.llm_model, os.environ.get("GROQ_API_KEY", ""))
+    else:
+        raise ValueError(f"unsupported LLM_PROVIDER '{settings.llm_provider}' "
+                         "(supported: anthropic, groq, none)")
     return LLMClient(backend, recorder, settings.llm_price_in, settings.llm_price_out)
 
 

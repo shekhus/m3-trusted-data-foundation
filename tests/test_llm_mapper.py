@@ -5,6 +5,7 @@ import os
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
@@ -16,6 +17,7 @@ from db.migrate import migrate
 from llm.client import (
     Completion,
     DbRecorder,
+    GroqBackend,
     InvalidOutput,
     LLMClient,
     LLMError,
@@ -90,7 +92,68 @@ def test_client_records_invalid_json_and_provider_errors() -> None:
 def test_provider_none_builds_no_client() -> None:
     assert build_client(Settings(llm_provider="none"), MemoryRecorder()) is None
     with pytest.raises(ValueError, match="unsupported"):
-        build_client(Settings(llm_provider="groq"), MemoryRecorder())
+        build_client(Settings(llm_provider="openrouter"), MemoryRecorder())
+
+
+def _groq(handler: object) -> GroqBackend:
+    return GroqBackend("openai/gpt-oss-120b", "gsk_test",
+                       http=httpx.Client(transport=httpx.MockTransport(handler)))  # type: ignore[arg-type]
+
+
+def test_groq_backend_sends_strict_schema_and_reads_usage() -> None:
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["auth"] = request.headers["Authorization"]
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={
+            "choices": [{"message": {"content": '{"x": 1}'}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 900, "completion_tokens": 120}})
+
+    completion = _groq(handler).complete("sys", "user", {"type": "object"}, 4000)
+    assert (completion.text, completion.input_tokens, completion.output_tokens) == ('{"x": 1}', 900, 120)
+    assert seen["auth"] == "Bearer gsk_test"
+    fmt = seen["body"]["response_format"]
+    assert fmt["type"] == "json_schema" and fmt["json_schema"]["strict"] is True
+    assert seen["body"]["messages"][0] == {"role": "system", "content": "sys"}
+
+
+@pytest.mark.parametrize(
+    ("response", "message"),
+    [(httpx.Response(429, json={"error": {"message": "rate limit reached"}}), "429: rate limit reached"),
+     (httpx.Response(200, json={"choices": [{"message": {"content": "{"}, "finish_reason": "length"}],
+                                "usage": {}}), "finish_reason=length")],
+)
+def test_groq_backend_errors_become_llm_errors(response: httpx.Response, message: str) -> None:
+    with pytest.raises(LLMError, match=message):
+        _groq(lambda request: response).complete("s", "u", {}, 10)
+
+
+def test_groq_backend_waits_once_on_a_short_rate_limit() -> None:
+    responses = [httpx.Response(429, headers={"retry-after": "3"}, json={"error": {"message": "TPM"}}),
+                 httpx.Response(200, json={"choices": [{"message": {"content": "{}"},
+                                                         "finish_reason": "stop"}]})]
+    slept: list[float] = []
+    http = httpx.Client(transport=httpx.MockTransport(lambda r: responses.pop(0)))
+    backend = GroqBackend("m", "k", http=http, sleep=slept.append)
+    assert backend.complete("s", "u", {}, 10).text == "{}"
+    assert slept == [3.5]
+
+
+def test_groq_backend_does_not_wait_on_a_long_rate_limit() -> None:
+    long_wait = httpx.Response(429, headers={"retry-after": "600"},
+                               json={"error": {"message": "daily limit"}})
+    slept: list[float] = []
+    backend = GroqBackend("m", "k", http=httpx.Client(transport=httpx.MockTransport(lambda r: long_wait)),
+                          sleep=slept.append)
+    with pytest.raises(LLMError, match="429: daily limit"):
+        backend.complete("s", "u", {}, 10)
+    assert slept == []
+
+
+def test_groq_backend_requires_a_key() -> None:
+    with pytest.raises(ValueError, match="GROQ_API_KEY"):
+        GroqBackend("openai/gpt-oss-120b", "")
 
 
 # --- mapper ----------------------------------------------------------------------
