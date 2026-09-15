@@ -1,0 +1,1173 @@
+[
+  {
+    "source": "plt01",
+    "file_count": 18,
+    "rows": 21634,
+    "header_variants": [
+      {
+        "columns": [
+          "ord_no",
+          "ln",
+          "cust_no",
+          "itm_no",
+          "fac",
+          "ord_dt",
+          "req_dt",
+          "cfm_dlv_dt",
+          "iss_dt",
+          "ord_qty",
+          "inv_qty",
+          "ord_wt",
+          "inv_wt",
+          "uom_cd"
+        ],
+        "first_file": "plt-01_orderlines_2025-03.csv",
+        "last_file": "plt-01_orderlines_2026-05.csv",
+        "file_count": 15,
+        "added": [],
+        "removed": []
+      },
+      {
+        "columns": [
+          "ord_no",
+          "ln",
+          "cust_no",
+          "itm_no",
+          "fac",
+          "ord_dt",
+          "req_dt",
+          "cfm_dlv_dt",
+          "iss_dt",
+          "ord_qty",
+          "inv_qty",
+          "ord_wt",
+          "inv_wt",
+          "uom_cd",
+          "lot_no"
+        ],
+        "first_file": "plt-01_orderlines_2026-06.csv",
+        "last_file": "plt-01_orderlines_2026-08.csv",
+        "file_count": 3,
+        "added": [
+          "lot_no"
+        ],
+        "removed": []
+      }
+    ],
+    "columns": [
+      {
+        "name": "ord_no",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 33.78,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AA9999999",
+            "share_pct": 100.0,
+            "example": "SO0000001"
+          }
+        ],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "ln",
+        "present_in_files": 18,
+        "dtype": "integer",
+        "null_pct": 0.0,
+        "distinct_pct": 0.023,
+        "whitespace_pct": 0.0,
+        "negative_count": 0,
+        "min": "1",
+        "max": "5",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "cust_no",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.06,
+        "distinct_pct": 0.236,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "A999999",
+            "share_pct": 100.0,
+            "example": "C000028"
+          }
+        ],
+        "date": null,
+        "reference": {
+          "master": "customers",
+          "exact_pct": 99.907,
+          "trimmed_pct": 99.907
+        },
+        "unit": null
+      },
+      {
+        "name": "itm_no",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.051,
+        "distinct_pct": 0.444,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AA99999",
+            "share_pct": 100.0,
+            "example": "IT00018"
+          }
+        ],
+        "date": null,
+        "reference": {
+          "master": "items",
+          "exact_pct": 99.926,
+          "trimmed_pct": 99.926
+        },
+        "unit": null
+      },
+      {
+        "name": "fac",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 0.005,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AAA-99",
+            "share_pct": 100.0,
+            "example": "PLT-01"
+          }
+        ],
+        "date": null,
+        "reference": {
+          "master": "plants",
+          "exact_pct": 100.0,
+          "trimmed_pct": 100.0
+        },
+        "unit": null
+      },
+      {
+        "name": "ord_dt",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.0,
+        "distinct_pct": 2.173,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "iso",
+          "parsed_pct": 100.0,
+          "min": "2025-03-01",
+          "max": "2026-08-31"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "req_dt",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.0,
+        "distinct_pct": 2.584,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "iso",
+          "parsed_pct": 100.0,
+          "min": "2025-03-04",
+          "max": "2026-09-13"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "cfm_dlv_dt",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.06,
+        "distinct_pct": 2.581,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "iso",
+          "parsed_pct": 100.0,
+          "min": "2025-03-04",
+          "max": "2026-09-14"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "iss_dt",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.0,
+        "distinct_pct": 2.589,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "iso",
+          "parsed_pct": 100.0,
+          "min": "2025-03-04",
+          "max": "2026-09-15"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "ord_qty",
+        "present_in_files": 18,
+        "dtype": "integer",
+        "null_pct": 0.088,
+        "distinct_pct": 0.754,
+        "whitespace_pct": 0.0,
+        "negative_count": 7,
+        "min": "-99",
+        "max": "203",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "inv_qty",
+        "present_in_files": 18,
+        "dtype": "integer",
+        "null_pct": 0.0,
+        "distinct_pct": 0.763,
+        "whitespace_pct": 0.0,
+        "negative_count": 9,
+        "min": "-61",
+        "max": "203",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "ord_wt",
+        "present_in_files": 18,
+        "dtype": "decimal",
+        "null_pct": 0.0,
+        "distinct_pct": 26.662,
+        "whitespace_pct": 0.0,
+        "negative_count": 0,
+        "min": "17.07",
+        "max": "10687.5",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": {
+          "unit": "lb",
+          "header_unit": null,
+          "magnitude_unit": "lb",
+          "magnitude_ratio": 1.0,
+          "conflict": false
+        }
+      },
+      {
+        "name": "inv_wt",
+        "present_in_files": 18,
+        "dtype": "decimal",
+        "null_pct": 0.0,
+        "distinct_pct": 85.366,
+        "whitespace_pct": 0.0,
+        "negative_count": 0,
+        "min": "0.0",
+        "max": "10676.83",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": {
+          "unit": "lb",
+          "header_unit": null,
+          "magnitude_unit": "lb",
+          "magnitude_ratio": 1.0,
+          "conflict": false
+        }
+      },
+      {
+        "name": "uom_cd",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 0.009,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AAAA",
+            "share_pct": 99.871,
+            "example": "CASE"
+          },
+          {
+            "shape": "AA",
+            "share_pct": 0.129,
+            "example": "LB"
+          }
+        ],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "lot_no",
+        "present_in_files": 3,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 97.637,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "A99999999999",
+            "share_pct": 100.0,
+            "example": "L01260607558"
+          }
+        ],
+        "date": null,
+        "reference": null,
+        "unit": null
+      }
+    ],
+    "candidate_key": {
+      "columns": [
+        "ord_no",
+        "ln"
+      ],
+      "duplicate_rows": 27,
+      "duplicate_pct": 0.125
+    },
+    "exact_duplicate_rows": 27,
+    "findings": [
+      "Header changes from plt-01_orderlines_2026-06.csv: added lot_no. Possible schema drift — confirm before mapping.",
+      "Dates are iso in ord_dt, req_dt, cfm_dlv_dt, iss_dt.",
+      "Weights look like lb in ord_wt, inv_wt.",
+      "cust_no: 0.06% blank.",
+      "cust_no: 0.093% of values not in the customers master.",
+      "itm_no: 0.051% blank.",
+      "itm_no: 0.074% of values not in the items master.",
+      "cfm_dlv_dt: 0.06% blank.",
+      "ord_qty: 0.088% blank.",
+      "ord_qty: 7 negative values.",
+      "inv_qty: 9 negative values.",
+      "uom_cd: 0.129% of values have the rare shape `AA` (e.g. 'LB').",
+      "Candidate row key (ord_no, ln): 27 duplicate rows (0.125%).",
+      "27 rows are exact duplicates of an earlier row."
+    ]
+  },
+  {
+    "source": "plt02",
+    "file_count": 18,
+    "rows": 18244,
+    "header_variants": [
+      {
+        "columns": [
+          "ORDERNUM",
+          "ORDERLINE",
+          "cust_no",
+          "ITEMID",
+          "FACILITY",
+          "DT_ORDER",
+          "DT_REQ",
+          "DT_CONFIRM",
+          "DT_SHIP",
+          "QTY_ORD",
+          "QTY_SHIP",
+          "WT_ORD_KG",
+          "WT_SHIP_KG",
+          "UOM",
+          "LOTID"
+        ],
+        "first_file": "plt-02_orderlines_2025-03.csv",
+        "last_file": "plt-02_orderlines_2026-02.csv",
+        "file_count": 12,
+        "added": [],
+        "removed": []
+      },
+      {
+        "columns": [
+          "ORDERNUM",
+          "ORDERLINE",
+          "customer_number",
+          "ITEMID",
+          "FACILITY",
+          "DT_ORDER",
+          "DT_REQ",
+          "DT_CONFIRM",
+          "DT_SHIP",
+          "QTY_ORD",
+          "QTY_SHIP",
+          "WT_ORD_KG",
+          "WT_SHIP_KG",
+          "UOM",
+          "LOTID"
+        ],
+        "first_file": "plt-02_orderlines_2026-03.csv",
+        "last_file": "plt-02_orderlines_2026-08.csv",
+        "file_count": 6,
+        "added": [
+          "customer_number"
+        ],
+        "removed": [
+          "cust_no"
+        ]
+      }
+    ],
+    "columns": [
+      {
+        "name": "ORDERNUM",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 33.781,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AA9999999",
+            "share_pct": 100.0,
+            "example": "SO0000002"
+          }
+        ],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "ORDERLINE",
+        "present_in_files": 18,
+        "dtype": "integer",
+        "null_pct": 0.0,
+        "distinct_pct": 0.027,
+        "whitespace_pct": 0.0,
+        "negative_count": 0,
+        "min": "1",
+        "max": "5",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "cust_no",
+        "present_in_files": 12,
+        "dtype": "integer",
+        "null_pct": 0.05,
+        "distinct_pct": 0.335,
+        "whitespace_pct": 0.0,
+        "negative_count": 0,
+        "min": "1",
+        "max": "998477",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "ITEMID",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.082,
+        "distinct_pct": 0.56,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AA99999",
+            "share_pct": 100.0,
+            "example": "IT00050"
+          }
+        ],
+        "date": null,
+        "reference": {
+          "master": "items",
+          "exact_pct": 99.879,
+          "trimmed_pct": 99.879
+        },
+        "unit": null
+      },
+      {
+        "name": "FACILITY",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 0.005,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AAA-99",
+            "share_pct": 100.0,
+            "example": "PLT-02"
+          }
+        ],
+        "date": null,
+        "reference": {
+          "master": "plants",
+          "exact_pct": 100.0,
+          "trimmed_pct": 100.0
+        },
+        "unit": null
+      },
+      {
+        "name": "DT_ORDER",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.0,
+        "distinct_pct": 2.576,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "us",
+          "parsed_pct": 100.0,
+          "min": "2025-03-01",
+          "max": "2026-08-31"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "DT_REQ",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.0,
+        "distinct_pct": 3.064,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "us",
+          "parsed_pct": 100.0,
+          "min": "2025-03-05",
+          "max": "2026-09-14"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "DT_CONFIRM",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.071,
+        "distinct_pct": 3.066,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "us",
+          "parsed_pct": 100.0,
+          "min": "2025-03-05",
+          "max": "2026-09-15"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "DT_SHIP",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.0,
+        "distinct_pct": 3.064,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "us",
+          "parsed_pct": 100.0,
+          "min": "2025-03-05",
+          "max": "2026-09-15"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "QTY_ORD",
+        "present_in_files": 18,
+        "dtype": "integer",
+        "null_pct": 0.049,
+        "distinct_pct": 0.91,
+        "whitespace_pct": 0.0,
+        "negative_count": 7,
+        "min": "-46",
+        "max": "201",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "QTY_SHIP",
+        "present_in_files": 18,
+        "dtype": "integer",
+        "null_pct": 0.0,
+        "distinct_pct": 0.921,
+        "whitespace_pct": 0.0,
+        "negative_count": 7,
+        "min": "-88",
+        "max": "201",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "WT_ORD_KG",
+        "present_in_files": 18,
+        "dtype": "decimal",
+        "null_pct": 0.0,
+        "distinct_pct": 29.363,
+        "whitespace_pct": 0.0,
+        "negative_count": 0,
+        "min": "7.74",
+        "max": "5404.68",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": {
+          "unit": "kg",
+          "header_unit": "kg",
+          "magnitude_unit": "kg",
+          "magnitude_ratio": 0.4536,
+          "conflict": false
+        }
+      },
+      {
+        "name": "WT_SHIP_KG",
+        "present_in_files": 18,
+        "dtype": "decimal",
+        "null_pct": 1.074,
+        "distinct_pct": 83.128,
+        "whitespace_pct": 0.0,
+        "negative_count": 0,
+        "min": "0.0",
+        "max": "5337.57",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": {
+          "unit": "kg",
+          "header_unit": "kg",
+          "magnitude_unit": "kg",
+          "magnitude_ratio": 0.4536,
+          "conflict": false
+        }
+      },
+      {
+        "name": "UOM",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 0.011,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AAAA",
+            "share_pct": 99.929,
+            "example": "CASE"
+          },
+          {
+            "shape": "AA",
+            "share_pct": 0.071,
+            "example": "LB"
+          }
+        ],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "LOTID",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 97.988,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "A99999999999",
+            "share_pct": 100.0,
+            "example": "L02250310622"
+          }
+        ],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "customer_number",
+        "present_in_files": 6,
+        "dtype": "integer",
+        "null_pct": 0.095,
+        "distinct_pct": 0.603,
+        "whitespace_pct": 0.0,
+        "negative_count": 0,
+        "min": "1",
+        "max": "988375",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": null
+      }
+    ],
+    "candidate_key": {
+      "columns": [
+        "ORDERNUM",
+        "ORDERLINE"
+      ],
+      "duplicate_rows": 33,
+      "duplicate_pct": 0.181
+    },
+    "exact_duplicate_rows": 30,
+    "findings": [
+      "Header changes from plt-02_orderlines_2026-03.csv: added customer_number; removed cust_no. Possible schema drift — confirm before mapping.",
+      "Dates are us in DT_ORDER, DT_REQ, DT_CONFIRM, DT_SHIP.",
+      "Weights look like kg in WT_ORD_KG, WT_SHIP_KG. Canonical weights are lb: convert and log the original value.",
+      "cust_no: 0.05% blank.",
+      "ITEMID: 0.082% blank.",
+      "ITEMID: 0.121% of values not in the items master.",
+      "DT_CONFIRM: 0.071% blank.",
+      "QTY_ORD: 0.049% blank.",
+      "QTY_ORD: 7 negative values.",
+      "QTY_SHIP: 7 negative values.",
+      "WT_SHIP_KG: 1.074% blank.",
+      "UOM: 0.071% of values have the rare shape `AA` (e.g. 'LB').",
+      "customer_number: 0.095% blank.",
+      "No column matches the customer master as-is — customer numbers are likely reformatted.",
+      "Candidate row key (ORDERNUM, ORDERLINE): 33 duplicate rows (0.181%).",
+      "30 rows are exact duplicates of an earlier row."
+    ]
+  },
+  {
+    "source": "plt03",
+    "file_count": 18,
+    "rows": 11773,
+    "header_variants": [
+      {
+        "columns": [
+          "Order",
+          "Line",
+          "Customer",
+          "Item",
+          "Plant",
+          "OrderDate",
+          "RequestDate",
+          "PromiseDate",
+          "ShipDate",
+          "QtyOrdered",
+          "QtyShipped",
+          "WeightOrdered",
+          "WeightShipped",
+          "UnitOfMeasure",
+          "Lot"
+        ],
+        "first_file": "plt-03_orderlines_2025-03.csv",
+        "last_file": "plt-03_orderlines_2026-08.csv",
+        "file_count": 18,
+        "added": [],
+        "removed": []
+      }
+    ],
+    "columns": [
+      {
+        "name": "Order",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 33.764,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AA9999999",
+            "share_pct": 100.0,
+            "example": "SO0000003"
+          }
+        ],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "Line",
+        "present_in_files": 18,
+        "dtype": "integer",
+        "null_pct": 0.0,
+        "distinct_pct": 0.042,
+        "whitespace_pct": 0.0,
+        "negative_count": 0,
+        "min": "1",
+        "max": "5",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "Customer",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.076,
+        "distinct_pct": 0.34,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AAAA-9999",
+            "share_pct": 99.923,
+            "example": "CUST-0013"
+          },
+          {
+            "shape": "AAAA-999999",
+            "share_pct": 0.077,
+            "example": "CUST-979331"
+          }
+        ],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "Item",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.102,
+        "distinct_pct": 0.74,
+        "whitespace_pct": 3.563,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AA99999",
+            "share_pct": 96.437,
+            "example": "IT00037"
+          },
+          {
+            "shape": "AA99999··",
+            "share_pct": 3.563,
+            "example": "IT00067  "
+          }
+        ],
+        "date": null,
+        "reference": {
+          "master": "items",
+          "exact_pct": 96.378,
+          "trimmed_pct": 99.94
+        },
+        "unit": null
+      },
+      {
+        "name": "Plant",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 0.008,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AAA-99",
+            "share_pct": 100.0,
+            "example": "PLT-03"
+          }
+        ],
+        "date": null,
+        "reference": {
+          "master": "plants",
+          "exact_pct": 100.0,
+          "trimmed_pct": 100.0
+        },
+        "unit": null
+      },
+      {
+        "name": "OrderDate",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.0,
+        "distinct_pct": 3.992,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "excel_serial",
+          "parsed_pct": 100.0,
+          "min": "2025-03-01",
+          "max": "2026-08-31"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "RequestDate",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.0,
+        "distinct_pct": 4.74,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "excel_serial",
+          "parsed_pct": 100.0,
+          "min": "2025-03-04",
+          "max": "2026-09-14"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "PromiseDate",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.042,
+        "distinct_pct": 4.75,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "excel_serial",
+          "parsed_pct": 100.0,
+          "min": "2025-03-04",
+          "max": "2026-09-15"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "ShipDate",
+        "present_in_files": 18,
+        "dtype": "date",
+        "null_pct": 0.0,
+        "distinct_pct": 4.748,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [],
+        "date": {
+          "format": "excel_serial",
+          "parsed_pct": 100.0,
+          "min": "2025-03-04",
+          "max": "2026-09-15"
+        },
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "QtyOrdered",
+        "present_in_files": 18,
+        "dtype": "integer",
+        "null_pct": 0.076,
+        "distinct_pct": 1.292,
+        "whitespace_pct": 0.0,
+        "negative_count": 2,
+        "min": "-53",
+        "max": "192",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "QtyShipped",
+        "present_in_files": 18,
+        "dtype": "integer",
+        "null_pct": 0.0,
+        "distinct_pct": 1.3,
+        "whitespace_pct": 0.0,
+        "negative_count": 3,
+        "min": "-72",
+        "max": "192",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "WeightOrdered",
+        "present_in_files": 18,
+        "dtype": "decimal",
+        "null_pct": 0.0,
+        "distinct_pct": 39.081,
+        "whitespace_pct": 0.0,
+        "negative_count": 0,
+        "min": "17.68",
+        "max": "13378.56",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": {
+          "unit": "lb",
+          "header_unit": null,
+          "magnitude_unit": "lb",
+          "magnitude_ratio": 1.0,
+          "conflict": false
+        }
+      },
+      {
+        "name": "WeightShipped",
+        "present_in_files": 18,
+        "dtype": "decimal",
+        "null_pct": 0.0,
+        "distinct_pct": 88.703,
+        "whitespace_pct": 0.0,
+        "negative_count": 0,
+        "min": "0.0",
+        "max": "13370.47",
+        "shapes": [],
+        "date": null,
+        "reference": null,
+        "unit": {
+          "unit": "lb",
+          "header_unit": null,
+          "magnitude_unit": "lb",
+          "magnitude_ratio": 1.0,
+          "conflict": false
+        }
+      },
+      {
+        "name": "UnitOfMeasure",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 0.017,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "AAAA",
+            "share_pct": 99.881,
+            "example": "CASE"
+          },
+          {
+            "shape": "AA",
+            "share_pct": 0.119,
+            "example": "LB"
+          }
+        ],
+        "date": null,
+        "reference": null,
+        "unit": null
+      },
+      {
+        "name": "Lot",
+        "present_in_files": 18,
+        "dtype": "string",
+        "null_pct": 0.0,
+        "distinct_pct": 98.632,
+        "whitespace_pct": 0.0,
+        "negative_count": null,
+        "min": null,
+        "max": null,
+        "shapes": [
+          {
+            "shape": "A99999999999",
+            "share_pct": 100.0,
+            "example": "L03250301659"
+          }
+        ],
+        "date": null,
+        "reference": null,
+        "unit": null
+      }
+    ],
+    "candidate_key": {
+      "columns": [
+        "Order",
+        "Line"
+      ],
+      "duplicate_rows": 20,
+      "duplicate_pct": 0.17
+    },
+    "exact_duplicate_rows": 20,
+    "findings": [
+      "Dates are excel_serial in OrderDate, RequestDate, PromiseDate, ShipDate.",
+      "Weights look like lb in WeightOrdered, WeightShipped.",
+      "Customer: 0.077% of values have the rare shape `AAAA-999999` (e.g. 'CUST-979331').",
+      "Customer: 0.076% blank.",
+      "Item: 3.563% of values carry leading/trailing whitespace.",
+      "Item: 0.102% blank.",
+      "Item: 0.060% of values not in the items master.",
+      "PromiseDate: 0.042% blank.",
+      "QtyOrdered: 0.076% blank.",
+      "QtyOrdered: 2 negative values.",
+      "QtyShipped: 3 negative values.",
+      "UnitOfMeasure: 0.119% of values have the rare shape `AA` (e.g. 'LB').",
+      "No column matches the customer master as-is — customer numbers are likely reformatted.",
+      "Candidate row key (Order, Line): 20 duplicate rows (0.17%).",
+      "20 rows are exact duplicates of an earlier row."
+    ]
+  }
+]

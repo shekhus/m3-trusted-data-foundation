@@ -1,4 +1,4 @@
-.PHONY: synth probe name-check up down logs migrate api test lint
+.PHONY: synth probe profile name-check up down logs migrate api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
@@ -8,6 +8,9 @@ synth:                ## generate data/ + ground_truth (deterministic, ~30s)
 
 probe:                ## fault + anomaly calibration probes against data/
 	$(PY) scripts/probe.py
+
+profile:              ## profile data/sources -> docs/findings.md + docs/findings.json
+	$(PY) scripts/profile.py
 
 name-check:           ## company-name collision checklist (before publishing)
 	$(PY) scripts/check_company_name.py

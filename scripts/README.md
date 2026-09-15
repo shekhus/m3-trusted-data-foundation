@@ -7,6 +7,7 @@ that works in PowerShell, CMD, or Git Bash from the repo root. Add a row here wh
 |---|---|
 | `make synth` | `.venv\Scripts\python -m synth.generate --out data --clean` |
 | `make probe` | `.venv\Scripts\python scripts/probe.py` |
+| `make profile` | `.venv\Scripts\python scripts/profile.py` |
 | `make name-check` | `.venv\Scripts\python scripts/check_company_name.py` |
 | `make up` | `docker compose up -d --build` |
 | `make down` | `docker compose down` |
