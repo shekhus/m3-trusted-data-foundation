@@ -395,3 +395,41 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
   - **Tests:** catalogue, ops alerts and API, and report rendering (a miss without a note stays visible). Full suite 366 passed, 1 skipped.
   - **Live:** `/ops/summary` on the rebuilt container reports 8 rate-limited calls and 1 run awaiting approval on the dev DB. The RUNBOOK sections the alerts name are written in task 24.
 
+### D-032 · 2026-09-16 · CI on GitHub Actions against pgvector Postgres; Railway deploy of one image as API and portal, gated on green CI
+
+- **Decision:**
+  - **CI (`.github/workflows/ci.yml`) on every push and PR.**
+    - Service `pgvector/pgvector:pg18`; uv installs `pyproject.toml` with the dev extra.
+    - `scripts/lint.py`, then `python -m synth.generate` (`data/` is never committed, and the generator is deterministic, so CI checks the locked answer keys on Linux), then the full pytest suite with `REQUIRE_POSTGRES=1`, then `evals/run_evals.py --no-retrieval --strict`, which exits 1 if any evaluation run now fails. Saved model results never fail CI, and without them the sections are reported as skipped.
+    - `evals/REPORT.md` is uploaded as an artifact.
+    - No model calls in CI (`LLM_PROVIDER=none`, `EMBEDDING_PROVIDER=none`).
+    - Action versions were verified against their releases. `astral-sh/setup-uv` publishes no floating major tag, so it is pinned to `v10.1.0`.
+  - **Deploy job.** It `needs: test`, runs only on pushes to `main`, and runs only when the repository variable `RAILWAY_DEPLOY=true`. It runs `railway up --service app --ci` and then `--service portal --ci` with a `RAILWAY_TOKEN` secret; `--ci` exits non-zero on a failed build.
+  - **Railway project `m3-trusted-data-foundation`** (created with the CLI on the account the user named).
+    - **Service `postgres`:** image `pgvector/pgvector:pg18`, the same as local and CI, because Railway's Postgres image lacks pgvector. A 5 GB volume is mounted at `/var/lib/postgresql` with `PGDATA` in a subdirectory, since initdb refuses a non-empty mount. The password is random and was set from stdin.
+    - **Services `app` and `portal`:** both run this repo's Dockerfile.
+    - The image now generates `data/` at build time, so a deploy has the same masters, extracts, knowledge base and answer keys as CI. Compose still mounts `./data` over it.
+    - `scripts/start.sh` runs migrations (must succeed), then a best-effort knowledge-base index sync (an embedding outage must not keep the API down), then uvicorn on `$PORT`. `APP_ROLE=portal` runs `scripts/start_portal.sh` instead.
+  - **Uvicorn binds every interface by default** (empty host). `::` alone was IPv6-only: Railway's IPv4 public edge returned 502 and Docker's IPv4 port mapping was refused. `0.0.0.0` alone would miss Railway's IPv6 private network.
+  - **App configuration.**
+    - `DATABASE_URL` is built from references to the postgres service, so the password is never copied; the config normalises `postgres://`/`postgresql://` to psycopg 3.
+    - Groq and Voyage are configured.
+    - `API_KEYS` for viewer, analyst and owner were generated randomly and set from stdin, never printed.
+  - **Portal configuration.** `API_BASE_URL=http://${{app.RAILWAY_PRIVATE_DOMAIN}}:8000`. It was set again after the app existed, because the reference had resolved empty when the portal was created first.
+  - `.gitattributes` keeps `*.sh` LF so a Windows checkout cannot break the container entrypoint.
+- **Alternatives:**
+  - Railway's GitHub autodeploy with "wait for CI": gates in Railway's settings rather than in the repo, and gives no build-failure signal in Actions.
+  - Railway's standard Postgres image (no pgvector).
+  - Committing `data/` (tens of MB of generated files, and it would drift from the generator).
+  - A start command set per service in the dashboard: configuration outside the repo, where `APP_ROLE` keeps it in code.
+  - Running the eval harness's retrieval and model sections in CI: they need provider keys and cost money on every push.
+- **Reason:** plan §1.4 criteria 1–3. **Verified:**
+  - **CI:** run 35021073648 and every later push green; on Ubuntu, 366 passed and 1 skipped in 1 m 40 s, the strict evals pass, and the job takes ≈4 min.
+  - **Public API:** https://app-production-4016.up.railway.app/healthz returns 200. Without a key, `/sources`, `/ops/summary`, `POST /ingest/plt01` and `POST /reconcile` return 401, and the local dev key is rejected.
+  - **Portal:** https://portal-production-6ba2.up.railway.app returns 200. From the portal container, `http://app.railway.internal:8000/healthz` answers over the private network.
+  - **Postgres:** redeployed on its volume, and all migrations ran on first start.
+  - **Incident:** the CLI echoed the first generated Postgres password into the session output. It was rotated before any data directory was created on the volume, and the final password was set from stdin.
+  - **Pending on the user:**
+    - `GROQ_API_KEY` and `VOYAGE_API_KEY` on the app service (the index sync reported the missing key and the API started without it);
+    - a Railway project token in the `RAILWAY_TOKEN` secret, plus `RAILWAY_DEPLOY=true`, to switch on deploy after green CI.
+
