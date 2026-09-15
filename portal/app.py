@@ -169,6 +169,22 @@ with tab_batches:
                 st.warning(f"Stale extracts (older than the source SLA): {', '.join(r['stale'])}")
         else:
             show_error(reply)
+    if st.button("Publish to gold (owner)", help="Refuses stale batches and shapes with an open drift alert; "
+                                                 "holds rows with blocking exceptions."):
+        reply = api.publish(source)
+        if reply.ok:
+            r = reply.data
+            st.success(f"{r['published']} batches published ({r['rows_published']:,} rows), "
+                       f"{r['refused']} refused. "
+                       f"Gold now holds {r['gold_rows_for_source']:,} rows for {source}.")
+            if r["rows_held"]:
+                st.caption("Rows held back: " + ", ".join(f"{k}: {v}" for k, v in r["rows_held"].items()))
+            refused = [b for b in r["batches"] if b["status"] == "refused"]
+            if refused:
+                listed = "; ".join(f"{b['file_name']} ({', '.join(b['reasons'])})" for b in refused)
+                st.warning(f"Refused: {listed}")
+        else:
+            show_error(reply)
     drift_reply = api.drift_alerts(source)
     if drift_reply.ok and drift_reply.data:
         st.subheader("Open drift alerts (publish blocked)")

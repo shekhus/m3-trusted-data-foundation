@@ -227,7 +227,7 @@ def revalidate(batch_id: str, _: Annotated[Principal, Worker],
                              {"b": batch_id}).first()
         if found is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "batch not found")
-        if found.status not in ("mapped", "validated"):
+        if found.status not in ("mapped", "validated", "published"):
             raise HTTPException(status.HTTP_409_CONFLICT,
                                 f"batch is {found.status}; only mapped batches validate")
         before = conn.execute(text("SELECT count(*) FROM ops.exception_events v JOIN ops.exceptions e "

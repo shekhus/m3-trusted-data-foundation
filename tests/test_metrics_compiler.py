@@ -145,6 +145,7 @@ def _load_fact_delivery(url: str) -> None:
         cols = [r[0] for r in pg.execute(
             "SELECT column_name FROM information_schema.columns WHERE table_schema = 'gold' "
             "AND table_name = 'fact_delivery' ORDER BY ordinal_position").fetchall()]
+        cols = [c for c in cols if c in fact.columns]  # provenance columns (batch_id, …) stay NULL
         rows = fact[cols].astype(object).where(fact[cols].notna(), None)
         with pg.cursor().copy(f"COPY gold.fact_delivery ({', '.join(cols)}) FROM STDIN") as copy:
             for row in rows.itertuples(index=False, name=None):

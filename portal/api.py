@@ -87,3 +87,6 @@ class Api:
 
     def resolve_drift(self, alert_id: int, resolution: str) -> Reply:
         return self._call("POST", f"/drift/alerts/{alert_id}/resolve", json={"resolution": resolution})
+
+    def publish(self, source: str) -> Reply:
+        return self._call("POST", f"/publish/{source}")

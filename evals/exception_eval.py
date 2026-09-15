@@ -80,12 +80,13 @@ def score(conn: Connection, data_dir: Path) -> ExceptionScore:
     all_sources = set(faults["source"])
 
     loaded = [r[0] for r in conn.execute(text(
-        "SELECT DISTINCT source FROM ops.batches WHERE status = 'validated' ORDER BY 1")).all()]
+        "SELECT DISTINCT source FROM ops.batches WHERE status IN ('validated', 'published') "
+        "ORDER BY 1")).all()]
     faults = faults[faults["source"].isin(loaded)]
     exceptions = pd.DataFrame(conn.execute(text(
         "SELECT e.source, e.rule_id AS rule, e.row_key, e.source_row, e.batch_id, e.reason, e.details "
         "FROM ops.exceptions e JOIN ops.batches b USING (batch_id) "
-        "WHERE b.status = 'validated' "
+        "WHERE b.status IN ('validated', 'published') "
         "AND (e.status <> 'resolved' OR e.resolved_by <> 'system:revalidation')")).mappings().all(),
         columns=["source", "rule", "row_key", "source_row", "batch_id", "reason", "details"])
     with_lot = {r[0] for r in conn.execute(text(

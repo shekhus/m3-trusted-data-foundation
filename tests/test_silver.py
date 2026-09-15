@@ -81,7 +81,8 @@ def test_silver_matches_clean_gold_for_every_unfaulted_line(
     """
     with silver_db.connect() as conn:
         not_mapped = conn.execute(
-            text("SELECT count(*) FROM ops.batches WHERE status <> 'validated'")).scalar_one()
+            text("SELECT count(*) FROM ops.batches "
+                 "WHERE status NOT IN ('validated', 'published')")).scalar_one()
         assert not_mapped == 0
         silver = pd.DataFrame(conn.execute(text("SELECT * FROM silver.order_lines")).mappings().all())
         bronze_rows = conn.execute(text("SELECT count(*) FROM bronze.raw_order_lines")).scalar_one()

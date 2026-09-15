@@ -11,7 +11,8 @@ from sqlalchemy.exc import IntegrityError
 from db.migrate import MIGRATIONS_DIR, MigrationError, discover, migrate, require_postgres
 
 OPS_TABLES = {"batches", "fingerprints", "mapping_versions", "exceptions", "lineage", "llm_calls",
-              "ingest_requests", "exception_events", "drift_alerts"}
+              "ingest_requests", "exception_events", "drift_alerts",
+              "publishes"}
 
 
 def _copy_migrations(tmp_path: Path) -> Path:

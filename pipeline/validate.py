@@ -77,8 +77,12 @@ def validate_batch(conn: Connection, batch_id: str, masters: Masters) -> dict[st
         "  SELECT mapping FROM ops.mapping_versions WHERE source = b.source AND header_hash = b.header_hash "
         "  AND status = 'confirmed') m ON true WHERE b.batch_id = :id FOR UPDATE OF b"),
         {"id": batch_id}).first()
-    if batch is None or batch.status not in ("mapped", "validated"):
+    if batch is None or batch.status not in ("mapped", "validated", "published"):
         raise ValueError(f"batch {batch_id} is not mapped (status {batch.status if batch else 'missing'})")
+    if batch.status == "published":  # gold must not keep rows a new exception picture might hold back
+        from pipeline.publish import withdraw
+
+        withdraw(conn, batch_id, SYSTEM, "re-validated; publish again to restore")
     df = silver_frame(conn, batch_id)
     mapped = frozenset(c["canonical_col"] for c in batch.mapping["columns"] if c["canonical_col"])
     ctx = RuleContext(source=batch.source, masters=masters, mapped=mapped)
