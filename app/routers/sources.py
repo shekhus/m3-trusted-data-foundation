@@ -1,4 +1,4 @@
-"""Sources: list, profile (findings), upload an extract, build bronze/silver, list batches.
+"""Sources: list, profile (findings), upload an extract, list batches. Ingest is POST /ingest/{source}.
 
 Uploads go to data/uploads/<source>/, never into the generated data/sources/ tree (its files are locked by
 tests/ground_truth.lock). The body is the raw CSV (`Content-Type: text/csv`), so no multipart dependency.
@@ -19,7 +19,6 @@ from sqlalchemy import Engine, text
 from app.auth import Principal, require
 from app.config import Settings, get_settings
 from app.db import get_engine
-from pipeline.ingest import BatchResult, ingest_file
 from pipeline.profile import SourceProfile, discover_sources, profile_source_cached
 
 router = APIRouter(tags=["sources"])
@@ -123,15 +122,6 @@ async def upload(source: str, request: Request, _: Annotated[Principal, Proposer
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(body)
     return Uploaded(source=source, file_name=name, bytes=len(body), columns=header, already_present=False)
-
-
-@router.post("/sources/{source}/silver", response_model=list[BatchResult])
-def build(source: str, _: Annotated[Principal, Proposer],
-          settings: Annotated[Settings, Depends(get_settings)],
-          engine: Annotated[Engine, Depends(get_engine)]) -> list[BatchResult]:
-    """Ingest every file: bronze always; silver + validation where the header has a confirmed mapping."""
-    master_dir = settings.data_dir / "master"
-    return [ingest_file(engine, source, f, master_dir) for f in _files(settings, source)]
 
 
 @router.get("/sources/{source}/batches", response_model=list[Batch])

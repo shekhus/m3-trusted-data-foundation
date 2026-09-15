@@ -13,6 +13,7 @@ import hashlib
 import io
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ from pipeline.canonical import BY_NAME, ORDER_LINE
 from pipeline.mapper.contract import MappingProposal, header_hash
 from pipeline.transforms import apply
 from pipeline.validate import load_masters, validate_batch
+from sources.base import Extract, ExtractRef
 
 SILVER_COLUMNS = [f.name for f in ORDER_LINE]
 
@@ -40,6 +42,7 @@ class BatchResult:
     error: str | None
     blocking_exceptions: int = 0
     warning_exceptions: int = 0
+    stale: bool = False
 
 
 def _driver_cursor(conn: Connection) -> Any:
@@ -59,7 +62,8 @@ def _confirmed_mapping(conn: Connection, source: str, hash_: str) -> tuple[int, 
 
 
 def _result(conn: Connection, batch_id: str, replayed: bool) -> BatchResult:
-    b = conn.execute(text("SELECT batch_id, source, file_name, status, row_count, error FROM ops.batches "
+    b = conn.execute(text("SELECT batch_id, source, file_name, status, row_count, error, stale "
+                          "FROM ops.batches "
                           "WHERE batch_id = :id"), {"id": batch_id}).one()
     counts = conn.execute(text(
         "SELECT count(*) AS n, count(*) FILTER (WHERE parse_errors <> '{}'::jsonb) AS bad "
@@ -69,7 +73,7 @@ def _result(conn: Connection, batch_id: str, replayed: bool) -> BatchResult:
         "GROUP BY 1"), {"id": batch_id}).tuples().all())
     return BatchResult(str(b.batch_id), b.source, b.file_name, b.status, b.row_count or 0, counts.n,
                        counts.bad, replayed, b.error, int(exceptions.get("block", 0)),
-                       int(exceptions.get("warn", 0)))
+                       int(exceptions.get("warn", 0)), bool(b.stale))
 
 
 def build_silver(conn: Connection, batch_id: str) -> None:
@@ -115,11 +119,26 @@ def build_silver(conn: Connection, batch_id: str) -> None:
                                                    "mapping_version_id": mapping_version_id})})
 
 
-def ingest_file(engine: Engine, source: str, path: Path, master_dir: Path) -> BatchResult:
-    """File → bronze → silver → validated. Stops at `blocked` when the header has no confirmed mapping."""
-    content = path.read_bytes()
+def ingest_file(engine: Engine, source: str, path: Path, master_dir: Path,
+                sla_hours: float | None = None) -> BatchResult:
+    """Convenience for scripts and tests: ingest a local file, its mtime taken as the production time."""
+    produced = datetime.fromtimestamp(path.stat().st_mtime, UTC)
+    extract = Extract(ExtractRef(source, path.name, produced), path.read_bytes())
+    return ingest_extract(engine, extract, master_dir, sla_hours)
+
+
+def ingest_extract(engine: Engine, extract: Extract, master_dir: Path, sla_hours: float | None = None,
+                   now: datetime | None = None) -> BatchResult:
+    """Extract → bronze → silver → validated. Stops at `blocked` when the header has no confirmed mapping.
+
+    `stale` is set when the extract was produced more than `sla_hours` before it is ingested (plan §2.6); the
+    batch is still accepted, and publish (week 4) refuses stale batches. A replay keeps the original flag.
+    """
+    source, name, content = extract.ref.source, extract.ref.name, extract.content
     digest = hashlib.sha256(content).hexdigest()
-    key = f"file:{source}:{path.name}:{digest}"
+    key = f"file:{source}:{name}:{digest}"
+    age_hours = ((now or datetime.now(UTC)) - extract.ref.produced_at).total_seconds() / 3600
+    stale = sla_hours is not None and age_hours > sla_hours
     with engine.begin() as conn:
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": key})
         existing = conn.execute(text("SELECT batch_id, status FROM ops.batches WHERE idempotency_key = :k"),
@@ -135,9 +154,9 @@ def ingest_file(engine: Engine, source: str, path: Path, master_dir: Path) -> Ba
         header = list(frame.columns)
         batch_id = str(conn.execute(text(
             "INSERT INTO ops.batches (source, file_name, idempotency_key, request_hash, row_count, "
-            "header_hash) VALUES (:s, :f, :k, :h, :n, :hh) RETURNING batch_id"),
-            {"s": source, "f": path.name, "k": key, "h": digest, "n": len(frame),
-             "hh": header_hash(header)}).scalar_one())
+            "header_hash, stale) VALUES (:s, :f, :k, :h, :n, :hh, :stale) RETURNING batch_id"),
+            {"s": source, "f": name, "k": key, "h": digest, "n": len(frame), "hh": header_hash(header),
+             "stale": stale}).scalar_one())
         copy_sql = "COPY bronze.raw_order_lines (batch_id, source_row, record) FROM STDIN"
         with _driver_cursor(conn).copy(copy_sql) as copy:
             for i, values in enumerate(frame.itertuples(index=False, name=None), start=1):
@@ -145,6 +164,15 @@ def ingest_file(engine: Engine, source: str, path: Path, master_dir: Path) -> Ba
         build_silver(conn, batch_id)
         _finish(conn, batch_id, master_dir)
         return _result(conn, batch_id, replayed=False)
+
+
+def record_failed_batch(engine: Engine, source: str, name: str | None, error: str) -> str:
+    """A fetch that never produced bytes still leaves a trace: a `failed` batch with the reason."""
+    with engine.begin() as conn:
+        return str(conn.execute(text(
+            "INSERT INTO ops.batches (source, file_name, status, error, finished_at) "
+            "VALUES (:s, :f, 'failed', :e, now()) RETURNING batch_id"),
+            {"s": source, "f": name, "e": error[:2000]}).scalar_one())
 
 
 def _finish(conn: Connection, batch_id: str, master_dir: Path) -> None:

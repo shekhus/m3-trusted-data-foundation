@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import sys
+import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -151,12 +152,21 @@ with tab_mappings:
                + ". * required. " + BY_NAME["customer_no"].description + ".")
 
 with tab_batches:
-    if st.button("Build bronze + silver", help="Every file of this source; blocked where a header has no "
-                                               "confirmed mapping."):
-        reply = api.build_silver(source)
+    # one key per click: a double-submit or a retried click replays instead of ingesting twice
+    key_name = f"ingest-key-{source}"
+    if key_name not in st.session_state:
+        st.session_state[key_name] = f"portal-{uuid.uuid4()}"
+    ingest_help = "Every file of this source; blocked where a header has no confirmed mapping."
+    if st.button("Ingest (bronze → silver → validate)", help=ingest_help):
+        reply = api.ingest(source, st.session_state[key_name])
+        st.session_state[key_name] = f"portal-{uuid.uuid4()}"
         if reply.ok:
-            mapped = sum(1 for b in reply.data if b["status"] == "mapped")
-            st.success(f"{mapped} of {len(reply.data)} files mapped to silver.")
+            r = reply.data
+            st.success(f"{r['validated']} of {len(r['files'])} files validated; {r['blocked']} blocked; "
+                       f"{r['blocking_exceptions']} blocking and {r['warning_exceptions']} warning "
+                       "exceptions.")
+            if r["stale"]:
+                st.warning(f"Stale extracts (older than the source SLA): {', '.join(r['stale'])}")
         else:
             show_error(reply)
     reply = api.batches(source)

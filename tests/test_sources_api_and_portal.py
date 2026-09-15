@@ -65,7 +65,8 @@ def test_upload_creates_a_new_source_that_can_be_profiled_mapped_and_ingested(
     proposal = client.post("/sources/plt09/mappings/propose", headers=_as("analyst")).json()["versions"][0]
     confirmed = client.post(f"/mappings/{proposal['mapping_version_id']}/confirm", headers=_as("owner"))
     assert confirmed.status_code == 200
-    batches = client.post("/sources/plt09/silver", headers=_as("analyst")).json()
+    ingested = client.post("/ingest/plt09", headers={**_as("analyst"), "Idempotency-Key": "test-upload-0001"})
+    batches = ingested.json()["files"]
     assert [b["status"] for b in batches] == ["validated"] and batches[0]["silver_rows"] == batches[0]["rows"]
     assert client.get("/sources/plt09/batches", headers=_as("viewer")).json()[0]["status"] == "validated"
 

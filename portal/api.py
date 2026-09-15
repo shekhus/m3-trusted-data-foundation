@@ -55,8 +55,8 @@ class Api:
     def decide(self, mapping_version_id: int, action: str) -> Reply:
         return self._call("POST", f"/mappings/{mapping_version_id}/{action}")
 
-    def build_silver(self, source: str) -> Reply:
-        return self._call("POST", f"/sources/{source}/silver")
+    def ingest(self, source: str, idempotency_key: str) -> Reply:
+        return self._call("POST", f"/ingest/{source}", headers={"Idempotency-Key": idempotency_key})
 
     def batches(self, source: str) -> Reply:
         return self._call("GET", f"/sources/{source}/batches")

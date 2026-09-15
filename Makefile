@@ -1,4 +1,4 @@
-.PHONY: synth probe profile metrics eval-mapping silver eval-exceptions portal name-check up down logs migrate api test lint
+.PHONY: synth probe profile metrics eval-mapping silver ingest eval-exceptions portal name-check up down logs migrate api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
@@ -20,6 +20,9 @@ eval-mapping:         ## score mapping proposers against ground truth -> evals/r
 
 silver:               ## files -> bronze -> silver for one source (needs a confirmed mapping per header), e.g. make silver SRC=plt01
 	$(PY) scripts/build_silver.py $(SRC)
+
+ingest:               ## POST /ingest/$(SRC) to the running API with a fresh Idempotency-Key, e.g. make ingest SRC=plt01
+	$(PY) scripts/ingest.py $(SRC)
 
 eval-exceptions:      ## exception recall/precision of the loaded sources vs faults.json
 	$(PY) scripts/eval_exceptions.py
