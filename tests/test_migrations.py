@@ -12,7 +12,7 @@ from db.migrate import MIGRATIONS_DIR, MigrationError, discover, migrate, requir
 
 OPS_TABLES = {"batches", "fingerprints", "mapping_versions", "exceptions", "lineage", "llm_calls",
               "ingest_requests", "exception_events", "drift_alerts",
-              "publishes", "reconciliation_runs", "reconciliation", "reconciliation_tools"}
+              "publishes", "reconciliation_runs", "reconciliation", "reconciliation_tools", "tool_calls"}
 
 
 def _copy_migrations(tmp_path: Path) -> Path:

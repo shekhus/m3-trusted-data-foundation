@@ -256,3 +256,39 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
   - **Still open in retrieval:** C8 near-duplicate plant profiles, and resolution chunks crowding documents out of the top 6.
   - **Tests (`tests/test_answer.py`, offline):** the registry is true to the corpus; version opt-in; superseded exclusion and labels; expired labels; precedence pairs labelled and never adding non-permitted chunks; the access gate refuses a plant user and not leadership; a scripted model shows bad citations retried then accepted, two invalid answers refused, access refusals making no model call, and prompts never holding restricted, other-plant or superseded excerpts; verdict rules including NFKC. The full suite passes: 308, 1 skipped.
 
+### D-029 · 2026-09-15 · A13 foundations: five read-only tools logged to ops.tool_calls, a four-outcome contract, and a policy gate whose SOP floors live in code
+
+- **Decision:**
+  - **Tools (`agent/tools/`).** Each returns a Pydantic model. All read; none writes to silver, gold or a master. Every call is logged to `ops.tool_calls` (migration `0014`: run, exception, tool, arguments, outcome ok/empty/error, result count, the JSON result the agent saw, latency, error), so every `evidence_ref` can be traced to a call.
+    - `search_prior_resolutions(symptom, rule_id)`: hybrid, or BM25 without an embedder, over the 93 resolution chunks, filtered by rule.
+    - `search_knowledge_base(query)`: precedence-aware retrieval as an **analyst**, documents only, with the access filter applied before ranking. The new `keep` hook in `retrieval/precedence.retrieve` is there because resolution chunks otherwise crowded every document out.
+    - `lookup_master(value, master, fuzzy)`: exact match, then the known normalisations (trim, upper-case, `CUST-####`/prefix and padding to `C######`), then difflib fuzzy matching at ≥0.85.
+    - `inspect_source_rows(source, row_key, window, batch_id)`: the raw bronze records around the failing row.
+    - `check_other_sources(key, field)`: the field is whitelisted, so no identifier can be injected into SQL.
+    - `exception_facts` builds what the gate checks against from the database (the current silver row, each canonical field's raw source text via the confirmed mapping, the item-master UOM), never from the model.
+  - **Contract (`agent/contracts.py`).**
+    - Exactly four outcomes. Confidence is a field.
+    - `evidence_refs` requires at least one entry of kind resolution, document, row, master or other_source.
+    - A fix is a list of field changes, each carrying its original value, with `retain_original`.
+    - Only `auto_fixable` may carry a fix and it must carry one; `not_covered` belongs to `source_defect` only.
+  - **Policy gate (`agent/policy_gate.py`, `policy/autofix.yaml`).**
+    - **Allowed kinds:** exactly the two SOP-DQ-001-v2 names: `uom_kg_to_lb` (V009: unit relabel plus weights × 2.20462 ± 0.01 lb) and `date_format` (V010/V002: the proposed ISO date must be the raw source text re-read in an allowed format).
+    - **What a fix must also satisfy:** the claimed originals must be the row's actual values, the fix must be for this exception, and the original must be retained.
+    - **Protected fields:** customer number, item number, both quantities and both weights. A weight changes only through the exact kg→lb conversion.
+    - **Loader floors in code:** `load_policy` refuses a YAML that names another kind, unprotects any of those fields, lets a kind change a protected field, alters the factor or what it converts, or drops `retain_original`.
+    - **Dispositions:** `no_fix`; `apply_after_approval`, which still waits for an owner, since the interrupt comes in task 21; or `human_proposal`, where a failing fix is kept with its reasons, never discarded.
+- **Alternatives:**
+  - The allowlist only in YAML: one edit could widen the SOP, whereas CLAUDE.md says the allowlist may not be widened from code or a prompt, so the floors sit in code and the file can only narrow them.
+  - Trusting the model's `original` values: an agent could "convert" a weight it invented, so the gate re-reads the row.
+  - Letting classifications drop a rejected fix: it would lose correct proposals such as `CUST-0004 → C000004`, which a person should still see.
+  - A tool that writes: A13's apply step is the only writer, and only after approval (task 21).
+  - A generic SQL tool: the agent would be able to read anything.
+- **Reason:** addendum A13 §2.3–2.4 and CLAUDE.md agentic conventions. **Verified:**
+  - `tests/test_policy_gate.py`:
+    - The correct kg→lb and date re-read fixes pass.
+    - **16/16 adversarial fixes are blocked and kept as human proposals**, including the sharpest case where the agent is right (`CUST-0004 → C000004`), a customer change smuggled into an allowed kind, a correct item trim, a negated quantity, rounded, invented-original and unconverted weights, a shifted date, a fix for another exception, and a deleted duplicate.
+    - The contract rejects missing evidence, a fifth outcome, a fix on a non-fixable outcome, and a missing fix.
+    - The policy file matches the SOP text, and six kinds of widening edit are refused.
+  - `tests/test_agent_tools.py`, full three-plant load: exact, normalised and fuzzy master lookups; V004 resolutions found by symptom; knowledge-base results exclude resolutions and restricted SLAs and policy; raw neighbourhood rows with the target flagged; other sources found and SQL-shaped field names refused; tool calls logged with ok/empty/error, arguments and results; gate facts read from the database pass a real V009 conversion and block a customer change inside it.
+  - **Dev DB smoke test:** real V002/V004/V005/V009 exceptions. The `C9…` customer and `IT9…` item have no master match, the prior resolutions returned are the matching `needs_master_data` ones, and the gate passes a real V009 conversion.
+

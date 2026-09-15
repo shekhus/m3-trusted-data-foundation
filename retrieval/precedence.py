@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from sqlalchemy import Engine
 
 from llm.embeddings import Embedder
 from retrieval.access import AccessContext
+from retrieval.chunker import Chunk
 from retrieval.hybrid import TOP_K, Hit, Mode, rank
 
 PRECEDENCE_FILE = Path(__file__).resolve().parent / "precedence.yaml"
@@ -89,10 +91,13 @@ def retrieve(
     k: int = TOP_K,
     mode: Mode = "hybrid",
     rules: list[PrecedenceRule] | None = None,
+    keep: Callable[[Chunk], bool] | None = None,
 ) -> Retrieved:
+    """`keep` narrows the ranked candidates before the top k are chosen (e.g. documents only, for the agent's
+    knowledge-base tool, so prior resolutions cannot crowd documents out)."""
     history = wants_history(query)
     ranking = rank(engine, query, access, mode, embedder, ALL_STATUSES if history else DEFAULT_STATUSES)
-    ordered = ranking.hits
+    ordered = [h for h in ranking.hits if keep is None or keep(h.chunk)]
     chosen = ordered[:k]
     notes: dict[str, list[str]] = {h.chunk.chunk_id: list(_status_note(h)) for h in ordered}
 

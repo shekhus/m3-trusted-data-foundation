@@ -1,0 +1,33 @@
+# Auto-fix allowlist for the exception resolution agent (docs/addendum1.md A13, CLAUDE.md "Agentic conventions").
+# Sourced from SOP-DQ-001-v2, section "Auto-fix policy" (data/kb/docs/SOP-DQ-001-v2.md):
+#
+#   Only two classes of issue may be corrected automatically, and both must be logged with the original value
+#   retained: unit-of-measure normalisation (kilograms to pounds); date-format normalisation.
+#   Everything else requires a human decision. No automated process may change a customer number, item
+#   number, quantity, or weight.
+#
+# This file cannot widen the SOP: agent/policy_gate.py refuses to load it if it allows a kind the SOP does not
+# name or stops protecting a field the SOP protects. Changing the policy means a new SOP version first.
+source:
+  doc_id: SOP-DQ-001-v2
+  section: Auto-fix policy
+  quote: "No automated process may change a customer number, item number, quantity, or weight."
+retain_original: true
+
+# Fields no automated fix may change. The one exception is a unit conversion under uom_kg_to_lb, which the SOP
+# names explicitly: the weight value changes only by the exact kg→lb factor, and the original is kept.
+never_changed: [customer_no, item_no, ordered_qty, invoiced_qty, ordered_weight_lb, invoiced_weight_lb]
+
+allowed:
+  - kind: uom_kg_to_lb
+    sop_text: "Unit-of-measure normalisation (kilograms to pounds)"
+    rules: [V009]
+    fields: [uom]
+    converts: [ordered_weight_lb, invoiced_weight_lb]
+    factor: 2.20462
+    tolerance_lb: 0.01
+  - kind: date_format
+    sop_text: "Date-format normalisation"
+    rules: [V010, V002]
+    fields: [order_date, requested_date, confirmed_delivery_date, issue_date]
+    formats: ["%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%d.%m.%Y", "excel_serial"]
