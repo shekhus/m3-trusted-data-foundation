@@ -1,0 +1,86 @@
+# Expected A13 outcome per seeded fault pattern (docs/addendum1.md §2.2, §2.5). faults.json has no agent answer
+# key, so each expectation cites where it comes from: the prior resolution records for the same pattern
+# (data/kb/resolutions/prior_resolutions.json) or the governing document. `expected` is the answer scored as
+# correct; `also_acceptable` is reported separately (lenient accuracy), never folded into the headline.
+#
+# Patterns match faults.json by rule_id and a regex on `detail`. The eval samples exceptions per pattern,
+# spread across plants, and runs the agent on each as it would run on the queue.
+patterns:
+  - id: V001_confirmed_date_blank
+    rule_id: V001_missing_required
+    detail: "^confirmed_delivery_date blanked$"
+    expected: needs_master_data
+    source: "RES-0068/0070/0071: the order was never confirmed; the plant planner must supply the date"
+  - id: V001_customer_blank
+    rule_id: V001_missing_required
+    detail: "^customer_no blanked$"
+    expected: source_defect
+    source: "SOP-DQ-001-v2: no automated change to a customer number; the extract omitted a required value"
+  - id: V001_item_blank
+    rule_id: V001_missing_required
+    detail: "^item_no blanked$"
+    expected: source_defect
+    source: "SOP-DQ-001-v2: no automated change to an item number; the extract omitted a required value"
+  - id: V001_qty_blank
+    rule_id: V001_missing_required
+    detail: "^ordered_qty blanked$"
+    expected: source_defect
+    source: "SOP-DQ-001-v2: no automated change to a quantity; the extract omitted a required value"
+  - id: V002_issue_before_order
+    rule_id: V002_date_reversal
+    detail: "^issue_date moved to"
+    expected: source_defect
+    source: "RES-0064/0065: ship date before order date is a source defect (confirm the date convention first)"
+  - id: V003_weight_over_tolerance
+    rule_id: V003_weight_over_tol
+    detail: "^invoiced_weight_lb inflated"
+    expected: escalate
+    source: "RES-0042/0045/0048: catch-weight overage is commercial, not a data issue"
+  - id: V004_unknown_customer
+    rule_id: V004_unknown_customer
+    detail: "^customer_no set to"
+    expected: needs_master_data
+    source: "RES-0015/0017: C9xxxxx customers with no match after normalisation are absent from the master"
+  - id: V005_unknown_item
+    rule_id: V005_unknown_item
+    detail: "^item_no set to"
+    expected: needs_master_data
+    source: "RES-0026/0027/0028: IT9xxxx items were never created in the item master"
+  - id: V006_shipped_after_expiry
+    rule_id: V006_lot_after_expiry
+    detail: "^expiry_date moved to"
+    expected: escalate
+    source: "RES-0050/0052/0055 and SOP-OPS-002: a compliance finding for quality, never a data correction"
+  - id: V007_negative_invoiced
+    rule_id: V007_negative_qty
+    detail: "^invoiced_qty negated$"
+    expected: escalate
+    source: "RES-0090/0091/0092: usually a credit or return; route to finance"
+  - id: V007_negative_ordered
+    rule_id: V007_negative_qty
+    detail: "^ordered_qty negated$"
+    expected: escalate
+    source: "RES-0090/0091/0092: usually a credit or return; route to finance"
+  - id: V008_duplicate_line
+    rule_id: V008_duplicate_line
+    detail: "^line duplicated"
+    expected: auto_fixable
+    source: "RES-0082/0083: keep the first occurrence, queue the remainder (policy still sends the fix to a person)"
+  - id: V009_weights_in_kg
+    rule_id: V009_uom_mismatch
+    detail: "^weights divided to kg"
+    expected: source_defect
+    also_acceptable: [auto_fixable]
+    source: "RES-0034/0035/0037 classify it source_defect; SOP-DQ-001-v2 also permits a kg→lb normalisation"
+
+# The hard gate (addendum §2.5): the 17 V006 faults on Cedar Falls rows shipped before 2026-06-01, when PLT-01 sent
+# no lot column. V006 cannot fire on them; V012 queues them as "not covered" (D-025). The agent must return
+# source_defect with not_covered = true and no fix: not a fix, not a compliance escalation. 100% or it fails.
+coverage_gate:
+  rule_id: V006_lot_after_expiry
+  plant: PLT-01
+  shipped_before: "2026-06-01"
+  exception_rule: V012
+  expected: source_defect
+  not_covered: true
+  source: "SRC-PLT01-001 change history; RES-0057/0058/0061"

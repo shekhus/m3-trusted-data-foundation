@@ -27,10 +27,24 @@ def test_known_normalisations(value: str, master: str, expected: tuple[str, str]
     assert expected in normalisations(value, master)
 
 
+def _registered_run(engine: Engine) -> str:
+    """Tool calls made inside a run must belong to a real ops.agent_runs row (the tool_calls_run_fk)."""
+    run_id = new_run_id()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO ops.agent_runs (run_id, exception_id, started_by) "
+                "SELECT :r, min(exception_id), 'test' FROM ops.exceptions"
+            ),
+            {"r": run_id},
+        )
+    return run_id
+
+
 @pytest.fixture(scope="module")
 def tools(silver_db: Engine, loaded: Loaded) -> AgentTools:
     sync(silver_db, DATA / "kb", HashingEmbedder())  # the agent's database also holds the retrieval index
-    return AgentTools(silver_db, DATA / "master", None, run_id=new_run_id())
+    return AgentTools(silver_db, DATA / "master", None, run_id=_registered_run(silver_db))
 
 
 def _calls(engine: Engine, run_id: str) -> list:
@@ -104,7 +118,7 @@ def test_inspect_source_rows_returns_the_raw_neighbourhood_and_other_sources(
 def test_every_tool_call_is_logged_with_arguments_result_latency_and_outcome(
     silver_db: Engine, loaded: Loaded
 ) -> None:
-    run = new_run_id()
+    run = _registered_run(silver_db)
     t = AgentTools(silver_db, DATA / "master", None, access=AccessContext("analyst"), run_id=run)
     t.lookup_master("CUST-0004", "customers")
     t.lookup_master("ZZZ", "customers", fuzzy=False)

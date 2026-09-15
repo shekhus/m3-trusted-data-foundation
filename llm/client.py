@@ -4,8 +4,8 @@ One provider at a time sits behind `Backend` (anthropic or groq, chosen by LLM_P
 `LLMClient.complete_json` makes a single request with a JSON schema as the output format, parses it with
 the caller's contract, and records the attempt (ok, invalid_output or error) to ops.llm_calls with model,
 prompt hash, tokens, latency and cost. It never retries an answer on its own; callers decide (the mapper
-retries an invalid answer once, then falls back to the heuristic). The Groq backend waits out one short
-rate limit, which is transport, not a second answer.
+retries an invalid answer once, then falls back to the heuristic). The Groq backend waits out
+tokens-per-minute rate limits within a total budget, which is transport, not a second answer.
 """
 
 from __future__ import annotations
@@ -123,7 +123,8 @@ class AnthropicBackend:
                           str(response.stop_reason))
 
 
-MAX_RATE_LIMIT_WAIT_S = 30.0
+MAX_RATE_LIMIT_WAIT_S = 65.0  # one wait: a tokens-per-minute window; a longer retry-after (daily quota) fails
+MAX_TOTAL_RATE_LIMIT_WAIT_S = 240.0  # all waits for one request
 
 
 def _retry_after_seconds(response: httpx.Response) -> float | None:
@@ -168,11 +169,14 @@ class GroqBackend:
                                 "json_schema": {"name": "answer", "strict": True, "schema": schema}},
         }
         response = self._post(body)
-        if response.status_code == 429:  # tokens-per-minute limit on the free tier: wait once if short
+        waited = 0.0
+        while response.status_code == 429:  # tokens-per-minute limit: wait it out within a budget (transport)
             wait = _retry_after_seconds(response)
-            if wait is not None and wait <= MAX_RATE_LIMIT_WAIT_S:
-                self._sleep(wait)
-                response = self._post(body)
+            if wait is None or wait > MAX_RATE_LIMIT_WAIT_S or waited + wait > MAX_TOTAL_RATE_LIMIT_WAIT_S:
+                break
+            self._sleep(wait)
+            waited += wait
+            response = self._post(body)
         request_id = response.headers.get("x-request-id", "")
         if not response.is_success:
             try:

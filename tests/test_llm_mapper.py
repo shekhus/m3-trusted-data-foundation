@@ -140,6 +140,23 @@ def test_groq_backend_waits_once_on_a_short_rate_limit() -> None:
     assert slept == [3.5]
 
 
+def test_groq_backend_waits_out_repeated_minute_limits_within_a_budget() -> None:
+    tpm = httpx.Response(429, headers={"retry-after": "40"}, json={"error": {"message": "TPM"}})
+    ok = httpx.Response(200, json={"choices": [{"message": {"content": "{}"}, "finish_reason": "stop"}]})
+    responses = [tpm, tpm, tpm, ok]
+    slept: list[float] = []
+    http = httpx.Client(transport=httpx.MockTransport(lambda r: responses.pop(0)))
+    assert GroqBackend("m", "k", http=http, sleep=slept.append).complete("s", "u", {}, 10).text == "{}"
+    assert slept == [40.5, 40.5, 40.5]
+
+    slept.clear()
+    endless = GroqBackend("m", "k", http=httpx.Client(transport=httpx.MockTransport(lambda r: tpm)),
+                          sleep=slept.append)
+    with pytest.raises(LLMError, match="429: TPM"):
+        endless.complete("s", "u", {}, 10)
+    assert sum(slept) <= 240 and len(slept) == 5
+
+
 def test_groq_backend_does_not_wait_on_a_long_rate_limit() -> None:
     long_wait = httpx.Response(429, headers={"retry-after": "600"},
                                json={"error": {"message": "daily limit"}})

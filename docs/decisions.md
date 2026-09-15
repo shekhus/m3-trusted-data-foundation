@@ -292,3 +292,48 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
   - `tests/test_agent_tools.py`, full three-plant load: exact, normalised and fuzzy master lookups; V004 resolutions found by symptom; knowledge-base results exclude resolutions and restricted SLAs and policy; raw neighbourhood rows with the target flagged; other sources found and SQL-shaped field names refused; tool calls logged with ok/empty/error, arguments and results; gate facts read from the database pass a real V009 conversion and block a customer change inside it.
   - **Dev DB smoke test:** real V002/V004/V005/V009 exceptions. The `C9…` customer and `IT9…` item have no master match, the prior resolutions returned are the matching `needs_master_data` ones, and the gate passes a real V009 conversion.
 
+### D-030 · 2026-09-15 · A13 as a LangGraph graph with a static interrupt before apply and a Postgres checkpointer; apply writes ops.exceptions only
+
+- **Decision:**
+  - **Graph (`agent/graph.py`, LangGraph 1.2.11 + langgraph-checkpoint-postgres 3.1.2, the user's choice).**
+    - `triage` (code): the exception, its silver row and its raw source text.
+    - `investigate` (one structured model decision per iteration, the tool run in code): the model picks one of the five tools or `classify`. The loop stops at **6 tool calls**. A missing argument becomes a step error the model sees. A decision that fails twice goes straight to classify.
+    - `classify`: the Resolution contract (strict JSON schema). **Every evidence_ref must appear in what the tools returned** (short suffixes are not accepted). One retry, fed the errors; then a `fallback` escalation with confidence 0 saying it could not conclude.
+    - `policy_gate` (code, D-029).
+    - **`interrupt_before=["apply"]` on every run.**
+    - `apply`: on approval, assigns the exception to the owner the outcome implies (master data by rule, `source:<plant>`, or commercial/quality/finance by rule for escalations) and appends an `agent_classified` event carrying the resolution, gate verdict, decision and note. On rejection it only appends `agent_rejected`. It never writes silver, gold or a master, and an approved fix is recorded, not applied.
+    - `record`: completes `ops.agent_runs`.
+  - **Storage (migration `0015`).** `ops.agent_runs` holds run state, outcome, gate, decision and fallback, with the checks that a completed run has a decision and a paused run has an outcome. Checkpoints live in the `agent_checkpoints` schema (`PostgresSaver.setup()`, idempotent). `ops.tool_calls.run_id` now references `ops.agent_runs`, and calls outside a run use NULL. The exception-event actions gain `agent_classified` and `agent_rejected`.
+  - **API (`app/routers/agent.py`).** `POST /exceptions/{id}/agent-runs` (analyst/owner; 409 if resolved or a run is already open), `GET /agent-runs/{id}` (any role), `POST /agent-runs/{id}/decision` (**owner only**; 409 unless paused). The decision resumes the run from the checkpoint in whichever process handles it.
+  - **Eval.**
+    - Expected outcomes live in `evals/cases/agent_outcomes.yaml`: 13 fault patterns, each citing its prior resolutions or SOP. V009 also accepts `auto_fixable` in lenient scoring only.
+    - The coverage hard gate covers the 17 Cedar Falls pre-June lot faults, run on their V012 not-covered exceptions.
+    - `scripts/eval_agent.py --build` builds a separate three-plant database.
+    - A run whose model calls hit transport errors is excluded from every rate and counted as `excluded_transport`.
+  - **Groq backend.** It now waits out repeated tokens-per-minute 429s, honouring retry-after up to 65 s per wait and 240 s per request. That is transport, not a second answer. Longer limits (daily quota) still fail.
+- **Alternatives:**
+  - A hand-written state machine: no new dependency, but it diverges from the addendum and from Project B's LangGraph work (user decision).
+  - `interrupt()` inside apply: pauses only where the code reaches it, whereas a static interrupt guarantees no run reaches apply undecided.
+  - The model writing its own tool-call arguments into free text: strict JSON with nullable arguments is validated in code.
+  - Trusting cited evidence: an agent could cite a resolution it never saw.
+  - Letting apply change silver when a fix passes the gate: CLAUDE.md forbids the agent writing silver, gold or masters.
+  - Scoring rate-limited runs as agent fallbacks: that would report the provider's quota as agent accuracy.
+- **Reason:** addendum A13 §2.4–2.5 and CLAUDE.md agentic conventions ("never bypass the interrupt just for a test — write a test that resumes the graph"). **Verified:**
+  - **`tests/test_agent_graph.py`, scripted model on the full three-plant load:**
+    - A run investigates, classifies and stops before apply, with nothing changed. A fresh process with new dependencies and a new compiled graph loads the checkpoint and resumes on the owner's approval **with zero model calls**. The exception is assigned to `master_data:customers` and the event carries the run and the note, and a second decision is refused.
+    - The loop stops at exactly 6 tool calls.
+    - Invented evidence (`RES-9999`) is retried once with the error, then falls back.
+    - A right-but-forbidden item fix becomes a human proposal, and approval leaves the silver row byte-identical.
+    - Rejection leaves the exception untouched.
+    - API: viewer cannot start, analyst cannot decide, one open run per exception, 404 for unknown runs.
+  - **Live on the dev DB (Groq):**
+    - V004 `C929079`: lookup empty, then prior resolutions, then `needs_master_data` at 0.96 citing the master lookup, RES-0017 and the row.
+    - V009: `source_defect` citing RES-0037. The owner approved from a separate process and the exception was assigned to `source:plt01`.
+  - **Eval database built:** 54 batches, 18,574 exceptions, 208 chunks.
+  - **Full suite:** 358 passed, 1 skipped.
+  - **The accuracy eval is NOT yet measured.**
+    - The first attempt hit Groq's 8,000 tokens-per-minute limit; 83 of 130 model calls returned 429, and those runs fell back.
+    - After the wait fix, the rerun exhausted the **200,000 tokens-per-day** quota, and all 56 runs were correctly excluded as transport errors.
+    - A valid run uses about 10k tokens (≈3 investigate calls of 2.3k plus 1 classify of 3.2k), so the 56-run eval needs ≈560k tokens.
+    - Results will be recorded here when a quota allows.
+

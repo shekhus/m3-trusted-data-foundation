@@ -19,6 +19,8 @@ dependencies = [
     "jinja2>=3.1.6",
     "httpx>=0.28.1",
     "python-dateutil>=2.9.0",
+    "langgraph>=1.2.11",                    # A13 agent graph (verified on PyPI 2026-09-15)
+    "langgraph-checkpoint-postgres>=3.1.2", # interrupt + resume from Postgres
 ]
 
 [project.optional-dependencies]
