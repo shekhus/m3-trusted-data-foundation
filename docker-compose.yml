@@ -1,0 +1,43 @@
+# Local stack: Postgres + API. The Streamlit portal service is added in week 2 (docs/decisions.md D-005).
+# Values come from .env when present; the defaults below are local-only development credentials.
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-m3}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-m3}
+      POSTGRES_DB: ${POSTGRES_DB:-m3tdf}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-m3}:${POSTGRES_PASSWORD:-m3}@db:5432/${POSTGRES_DB:-m3tdf}
+      API_KEYS: ${API_KEYS:-viewer:change-me-viewer,analyst:change-me-analyst,owner:change-me-owner}
+      LLM_PROVIDER: ${LLM_PROVIDER:-none}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DATA_DIR: data
+      SOURCE_SLA_HOURS: ${SOURCE_SLA_HOURS:-72}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
