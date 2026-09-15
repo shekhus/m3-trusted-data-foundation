@@ -9,3 +9,4 @@ data/
 evals/results/*.json
 !evals/results/.gitkeep
 *.sqlite
+backups/
