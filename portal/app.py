@@ -43,8 +43,8 @@ if not sources_reply.ok:
 sources = [s["source"] for s in sources_reply.data]
 
 st.title("Trusted data foundation — mapping console")
-tab_sources, tab_findings, tab_mappings, tab_batches = st.tabs(["Sources & upload", "Findings", "Mappings",
-                                                                "Batches"])
+tab_sources, tab_findings, tab_mappings, tab_batches, tab_exceptions = st.tabs(
+    ["Sources & upload", "Findings", "Mappings", "Batches", "Exceptions"])
 
 with tab_sources:
     st.dataframe(pd.DataFrame(sources_reply.data), hide_index=True, width="stretch")
@@ -174,3 +174,87 @@ with tab_batches:
         st.dataframe(pd.DataFrame(reply.data), hide_index=True, width="stretch")
     else:
         show_error(reply)
+
+
+def _label(items: list[dict], exception_id: int) -> str:
+    e = next(x for x in items if x["exception_id"] == exception_id)
+    return f"#{exception_id} {e['rule_id']} {e['row_key']}"
+
+
+with tab_exceptions:
+    summary_reply = api.exception_summary(source)
+    if summary_reply.ok:
+        summary = summary_reply.data
+        cols = st.columns(4)
+        cols[0].metric("Open blocking", summary["open_blocking"])
+        cols[1].metric("Open", summary["by_status"].get("open", 0))
+        cols[2].metric("Assigned", summary["by_status"].get("assigned", 0))
+        cols[3].metric("Resolved", summary["by_status"].get("resolved", 0))
+        if summary["open_by_owner"]:
+            st.caption("Open by owner: " + ", ".join(f"{k} {v}" for k, v in summary["open_by_owner"].items()))
+    else:
+        show_error(summary_reply)
+
+    f1, f2, f3, f4 = st.columns(4)
+    status_filter = f1.selectbox("Status", ["", "open", "assigned", "resolved"], index=1)
+    severity_filter = f2.selectbox("Severity", ["", "block", "warn"])
+    rule_filter = f3.selectbox("Rule", ["", *[f"V{n:03d}" for n in range(1, 12)]])
+    owner_filter = f4.text_input("Owner", placeholder="e.g. master_data:customers")
+    page = api.exceptions(source=source, status=status_filter, severity=severity_filter, rule_id=rule_filter,
+                          owner=owner_filter, limit=200)
+    if not page.ok:
+        show_error(page)
+    elif not page.data["items"]:
+        st.info("No exceptions match.")
+    else:
+        items = page.data["items"]
+        st.caption(f"{page.data['total']} matching; showing {len(items)}.")
+        st.dataframe(pd.DataFrame([{
+            "id": e["exception_id"], "rule": e["rule_id"], "severity": e["severity"], "status": e["status"],
+            "row": e["row_key"], "file": e["file_name"], "owner": e["owner"], "reason": e["reason"],
+        } for e in items]), hide_index=True, width="stretch")
+        chosen_id = st.selectbox("Work an exception", [e["exception_id"] for e in items],
+                                 format_func=lambda i: _label(items, i))
+        item = api.exception(chosen_id)
+        if not item.ok:
+            show_error(item)
+        else:
+            e = item.data
+            st.markdown(f"**{e['rule_id']} ({e['severity']})**: {e['reason']}")
+            st.markdown(f"Suggested fix: {e['suggested_fix'] or '-'}")
+            left, right = st.columns(2)
+            left.caption("Evidence")
+            left.json(e["details"])
+            right.caption(f"Raw record as received ({e['file_name']}, row {e['source_row']})")
+            right.json(e["raw_record"])
+            if e["events"]:
+                st.caption("History: " + "; ".join(f"{v['action']} by {v['actor']}" for v in e["events"]))
+            if e["status"] == "resolved":
+                st.info(f"Resolved ({e['resolution_kind']}) by {e['resolved_by']}: {e['resolution']}")
+            else:
+                with st.form(f"assign-{chosen_id}"):
+                    new_owner = st.text_input("Assign to", value=e["owner"] or "")
+                    if st.form_submit_button("Assign"):
+                        reply = api.assign(chosen_id, new_owner)
+                        if reply.ok:
+                            st.success(f"Assigned to {new_owner}.")
+                        else:
+                            show_error(reply)
+                with st.form(f"resolve-{chosen_id}"):
+                    kind = st.selectbox("Resolution", ["accept", "exclude", "fixed_at_source"],
+                                        help="accept: publish the row as sent; exclude: never publish it; "
+                                             "fixed_at_source: a corrected extract will replace it")
+                    note = st.text_area("What was decided and why (owner only)")
+                    if st.form_submit_button("Resolve"):
+                        reply = api.resolve(chosen_id, kind, note)
+                        if reply.ok:
+                            st.success("Resolved.")
+                        else:
+                            show_error(reply)
+            if st.button("Re-run validation for this batch", key=f"revalidate-{e['batch_id']}"):
+                reply = api.revalidate(e["batch_id"])
+                if reply.ok:
+                    st.success(f"Re-validated: {reply.data['open_exceptions']} open, "
+                               f"{reply.data['auto_resolved']} closed as no longer violated.")
+                else:
+                    show_error(reply)

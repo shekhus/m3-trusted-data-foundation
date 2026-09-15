@@ -110,10 +110,15 @@ def validate_batch(conn: Connection, batch_id: str, masters: Masters) -> dict[st
             found)
     current = json.dumps([[f["rule"], f["row"]] for f in found])
     conn.execute(text(
-        "UPDATE ops.exceptions SET status = 'resolved', resolved_by = :who, resolved_at = now(), "
-        "resolution = 'no longer violated when the batch was re-validated' "
-        "WHERE batch_id = :b AND status <> 'resolved' AND (rule_id, source_row) NOT IN ("
-        "  SELECT x->>0, (x->>1)::int FROM jsonb_array_elements(CAST(:current AS jsonb)) x)"),
+        "WITH closed AS ("
+        "  UPDATE ops.exceptions SET status = 'resolved', resolved_by = :who, resolved_at = now(), "
+        "  resolution_kind = 'no_longer_violated', "
+        "  resolution = 'no longer violated when the batch was re-validated' "
+        "  WHERE batch_id = :b AND status <> 'resolved' AND (rule_id, source_row) NOT IN ("
+        "    SELECT x->>0, (x->>1)::int FROM jsonb_array_elements(CAST(:current AS jsonb)) x) "
+        "  RETURNING exception_id) "
+        "INSERT INTO ops.exception_events (exception_id, action, actor) "
+        "SELECT exception_id, 'auto_resolved', :who FROM closed"),
         {"who": SYSTEM, "b": batch_id, "current": current})
     summary = {"rows_validated": len(df), "rules_run": [r.id for r in RULES], "violations": counts}
     conn.execute(text("UPDATE ops.batches SET status = 'validated', finished_at = now(), "

@@ -60,3 +60,23 @@ class Api:
 
     def batches(self, source: str) -> Reply:
         return self._call("GET", f"/sources/{source}/batches")
+
+    def exceptions(self, **filters: Any) -> Reply:
+        params = {k: v for k, v in filters.items() if v not in (None, "")}
+        return self._call("GET", "/exceptions", params=params)
+
+    def exception_summary(self, source: str) -> Reply:
+        return self._call("GET", "/exceptions/summary", params={"source": source})
+
+    def exception(self, exception_id: int) -> Reply:
+        return self._call("GET", f"/exceptions/{exception_id}")
+
+    def assign(self, exception_id: int, owner: str) -> Reply:
+        return self._call("POST", f"/exceptions/{exception_id}/assign", json={"owner": owner})
+
+    def resolve(self, exception_id: int, kind: str, resolution: str) -> Reply:
+        body = {"kind": kind, "resolution": resolution}
+        return self._call("POST", f"/exceptions/{exception_id}/resolve", json=body)
+
+    def revalidate(self, batch_id: str) -> Reply:
+        return self._call("POST", f"/batches/{batch_id}/revalidate")
