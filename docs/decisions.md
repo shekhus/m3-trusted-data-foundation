@@ -429,7 +429,10 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
   - **Portal:** https://portal-production-6ba2.up.railway.app returns 200. From the portal container, `http://app.railway.internal:8000/healthz` answers over the private network.
   - **Postgres:** redeployed on its volume, and all migrations ran on first start.
   - **Incident:** the CLI echoed the first generated Postgres password into the session output. It was rotated before any data directory was created on the volume, and the final password was set from stdin.
-  - **Pending on the user:**
-    - `GROQ_API_KEY` and `VOYAGE_API_KEY` on the app service (the index sync reported the missing key and the API started without it);
-    - a Railway project token in the `RAILWAY_TOKEN` secret, plus `RAILWAY_DEPLOY=true`, to switch on deploy after green CI.
+  - **Completed 2026-09-16.**
+    - The user set `GROQ_API_KEY` and `VOYAGE_API_KEY` on the app. On restart the production index synced 208 chunks (207 embedded with voyage-4).
+    - The production viewer key reads `/ops/summary` and gets 403 on confirming a mapping.
+    - `RAILWAY_DEPLOY=true` and the `RAILWAY_TOKEN` secret are set.
+      - A first token was pasted into the session by mistake; the user revoked it and stored a new one through GitHub's web UI.
+    - Re-run of CI run 35024872067: `test` green, then `deploy` uploaded app and portal (`Deploy complete` for both). The new Railway deployments are SUCCESS, the previous ones REMOVED, `/healthz` returns 200 and the portal 200.
 
