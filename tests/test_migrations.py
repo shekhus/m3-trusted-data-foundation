@@ -73,11 +73,16 @@ def test_fresh_database_gets_schemas_and_ops_tables(engine: Engine) -> None:
     with engine.connect() as conn:
         schemas = set(conn.execute(text("SELECT schema_name FROM information_schema.schemata")).scalars())
         ops = set(conn.execute(text(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'ops'")).scalars())
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'ops' "
+            "AND table_type = 'BASE TABLE'")).scalars())
+        views = set(conn.execute(text(
+            "SELECT table_name FROM information_schema.views WHERE table_schema = 'ops'")).scalars())
         recorded = conn.execute(
             text("SELECT name FROM public.schema_migrations ORDER BY version")).scalars().all()
     assert {"bronze", "silver", "gold", "ops", "retrieval"} <= schemas
     assert ops == OPS_TABLES
+    assert views == {"v_model_usage_daily", "v_pipeline_health", "v_exception_backlog", "v_agent_runs",
+                     "v_tool_usage"}
     assert recorded == [m.name for m in discover()]
 
 

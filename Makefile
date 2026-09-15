@@ -1,4 +1,4 @@
-.PHONY: synth probe profile metrics eval-mapping silver ingest eval-exceptions eval-drift reconcile revalidate eval-change-request index eval-rag eval-answers eval-agent portal name-check up down logs migrate api test lint
+.PHONY: eval synth probe profile metrics eval-mapping silver ingest eval-exceptions eval-drift reconcile revalidate eval-change-request index eval-rag eval-answers eval-agent portal name-check up down logs migrate api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
@@ -14,6 +14,9 @@ profile:              ## profile data/sources -> docs/findings.md + docs/finding
 
 metrics:              ## compile metrics/*.yaml -> metrics/compiled/*.sql and create the views (needs DATABASE_URL)
 	$(PY) scripts/compile_metrics.py --apply
+
+eval:                 ## full evaluation from a rebuilt DB -> evals/results/<date>.json + evals/REPORT.md
+	$(PY) evals/run_evals.py
 
 eval-mapping:         ## score mapping proposers against ground truth -> evals/results/mapping_<date>.json
 	$(PY) scripts/eval_mapping.py

@@ -43,8 +43,8 @@ if not sources_reply.ok:
 sources = [s["source"] for s in sources_reply.data]
 
 st.title("Trusted data foundation — mapping console")
-tab_sources, tab_findings, tab_mappings, tab_batches, tab_exceptions, tab_reconcile = st.tabs(
-    ["Sources & upload", "Findings", "Mappings", "Batches", "Exceptions", "Reconciliation"])
+tab_sources, tab_findings, tab_mappings, tab_batches, tab_exceptions, tab_reconcile, tab_ops = st.tabs(
+    ["Sources & upload", "Findings", "Mappings", "Batches", "Exceptions", "Reconciliation", "Ops"])
 
 with tab_sources:
     st.dataframe(pd.DataFrame(sources_reply.data), hide_index=True, width="stretch")
@@ -245,6 +245,35 @@ with tab_reconcile:
                     st.dataframe(detail.round(5), hide_index=True, width="stretch")
             st.caption("Contributions are single-switch deltas from governed; they interact and do not "
                        "sum to the gap.")
+
+
+with tab_ops:
+    days = st.selectbox("Window", [1, 7, 30], index=1, format_func=lambda d: f"last {d} day(s)")
+    ops = api.ops_summary(days)
+    if not ops.ok:
+        show_error(ops)
+    else:
+        data = ops.data
+        if data["alerts"]:
+            for alert in data["alerts"]:
+                st.warning(alert)
+        else:
+            st.success("No operator alerts.")
+        st.subheader("Pipeline")
+        st.dataframe(pd.DataFrame(data["pipeline"]), hide_index=True, width="stretch")
+        st.subheader("Open exceptions")
+        st.dataframe(pd.DataFrame(data["exception_backlog"]), hide_index=True, width="stretch")
+        st.subheader("Model usage (LLM and embeddings)")
+        usage = pd.DataFrame(data["model_usage"])
+        if not usage.empty:
+            left, mid, right = st.columns(3)
+            left.metric("Calls", int(usage["calls"].sum()))
+            mid.metric("Errors", int(usage["errors"].sum()))
+            right.metric("Cost (USD)", f"{float(usage['cost_usd'].astype(float).sum()):.4f}")
+        st.dataframe(usage, hide_index=True, width="stretch")
+        st.subheader("Exception agent")
+        st.dataframe(pd.DataFrame(data["agent_runs"]), hide_index=True, width="stretch")
+        st.dataframe(pd.DataFrame(data["tool_usage"]), hide_index=True, width="stretch")
 
 
 def _label(items: list[dict], exception_id: int) -> str:

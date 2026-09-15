@@ -9,6 +9,7 @@ that works in PowerShell, CMD, or Git Bash from the repo root. Add a row here wh
 | `make probe` | `.venv\Scripts\python scripts/probe.py` |
 | `make profile` | `.venv\Scripts\python scripts/profile.py` |
 | `make metrics` | `.venv\Scripts\python scripts/compile_metrics.py --apply` (drop `--apply` to compile without a database) |
+| `make eval` | `.venv\Scripts\python evals/run_evals.py` |
 | `make eval-mapping` | `.venv\Scripts\python scripts/eval_mapping.py` (add `--llm` to also score the LLM mapper; paid calls) |
 | `make silver SRC=plt01` | `.venv\Scripts\python scripts/build_silver.py plt01` |
 | `make ingest SRC=plt01` | `.venv\Scripts\python scripts/ingest.py plt01` (add `--key K` to replay) |

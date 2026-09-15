@@ -25,53 +25,11 @@ from sqlalchemy.engine import make_url  # noqa: E402
 
 from agent.graph import AgentDeps, start_run  # noqa: E402
 from app.config import get_settings  # noqa: E402
-from db.migrate import MigrationError, migrate, require_postgres  # noqa: E402
+from db.migrate import MigrationError, require_postgres  # noqa: E402
 from evals.agent_eval import AgentResult, AgentScore, samples  # noqa: E402
+from evals.eval_db import build_pipeline_db  # noqa: E402
 from llm.client import DbRecorder, build_client  # noqa: E402
 from llm.embeddings import embedder_for  # noqa: E402
-from pipeline.ingest import ingest_file  # noqa: E402
-from pipeline.mapper.heuristic import propose  # noqa: E402
-from pipeline.profile import discover_sources, profile_all  # noqa: E402
-from retrieval.store import sync  # noqa: E402
-
-
-def build(server_url: str, name: str, data_dir: Path) -> None:
-    admin = create_engine(make_url(server_url).set(database="postgres"), isolation_level="AUTOCOMMIT")
-    with admin.connect() as conn:
-        conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
-        conn.execute(text(f'CREATE DATABASE "{name}"'))
-    admin.dispose()
-    url = make_url(server_url).set(database=name).render_as_string(hide_password=False)
-    migrate(url)
-    engine = create_engine(url)
-    profiles = profile_all(data_dir / "sources", data_dir / "master")
-    for profile in profiles:
-        for variant in profile.header_variants:
-            proposal = propose(profile, variant.columns)
-            with engine.begin() as conn:
-                conn.execute(
-                    text(
-                        "INSERT INTO ops.mapping_versions (source, version, mapping, proposed_by, status, "
-                        "confirmed_by, confirmed_at, header, header_hash) "
-                        "SELECT :s, COALESCE(MAX(version), 0) + 1, CAST(:m AS jsonb), 'heuristic', "
-                        "'confirmed', 'eval', now(), CAST(:hdr AS jsonb), :h FROM ops.mapping_versions "
-                        "WHERE source = :s"
-                    ),
-                    {
-                        "s": profile.source,
-                        "m": json.dumps({"columns": [c.model_dump() for c in proposal.columns]}),
-                        "hdr": json.dumps(variant.columns),
-                        "h": proposal.header_hash,
-                    },
-                )
-    for source, files in discover_sources(data_dir / "sources").items():
-        for f in files:
-            result = ingest_file(engine, source, f, data_dir / "master")
-            print(f"  {source} {f.name}: {result.status}")
-    settings = get_settings()
-    synced = sync(engine, data_dir / "kb", embedder_for(settings, DbRecorder(engine)))
-    print(f"  knowledge base: {synced.chunks} chunks, {synced.embedded} embedded")
-    engine.dispose()
 
 
 def _write(summary: dict) -> Path:
@@ -114,7 +72,7 @@ def main() -> int:
     url = make_url(settings.database_url).set(database=args.database).render_as_string(hide_password=False)
     if args.build:
         print(f"building {args.database} ...")
-        build(settings.database_url, args.database, settings.data_dir)
+        build_pipeline_db(settings.database_url, args.database, settings.data_dir)
     engine = create_engine(url)
     recorder = DbRecorder(engine)
     llm = build_client(settings, recorder)

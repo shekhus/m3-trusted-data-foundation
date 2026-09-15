@@ -1,0 +1,76 @@
+# Failure cases (docs/plan.md §2.6, Playbook Appendix C; docs/addendum1.md A13-A18) → the tests that demonstrate
+# each expected behaviour. tests/failure_cases/test_catalog.py fails if a §2.6 row is missing here or a listed
+# test no longer exists, so the catalogue cannot silently rot. Behaviour lives in the tests named, not here.
+plan_2_6:
+  - case: Source unreachable
+    expected: Ingest returns 503 with retry-after; batch marked failed; no partial publish
+    tests:
+      - tests/failure_cases/test_ingest_failure_cases.py::test_unreachable_source_returns_503_marks_failed_and_the_same_key_retries
+  - case: Stale source (file older than SLA)
+    expected: Batch accepted but flagged stale; gold publish blocked; alert
+    tests:
+      - tests/failure_cases/test_ingest_failure_cases.py::test_stale_extract_is_accepted_but_flagged
+      - tests/test_publish.py::test_publish_api_is_owner_only_refuses_stale_and_keeps_history
+      - tests/test_ops.py::test_alerts_name_the_condition_and_the_runbook_section
+  - case: LLM returns invalid JSON / hallucinated column
+    expected: Pydantic rejects; heuristic mapping used; item flagged "needs review" in portal
+    tests:
+      - tests/failure_cases/test_mapping_failure_cases.py::test_llm_style_answer_with_hallucinated_column_is_rejected
+      - tests/test_llm_mapper.py::test_hallucinated_column_twice_falls_back_to_heuristic_flagged
+      - tests/test_llm_mapper.py::test_client_records_invalid_json_and_provider_errors
+  - case: Duplicate ingest (retry)
+    expected: Same Idempotency-Key → original result; zero duplicate rows
+    tests:
+      - tests/test_ingest_api.py::test_same_key_three_times_replays_the_original_and_writes_nothing
+      - tests/test_ingest_api.py::test_a_new_key_for_the_same_files_duplicates_nothing
+      - tests/failure_cases/test_ingest_failure_cases.py::test_a_key_still_in_progress_is_not_run_twice
+  - case: Schema drift
+    expected: Publish blocked; drift alert names mapping + affected reports
+    tests:
+      - tests/test_drift.py::test_drift_eval_two_of_two_named_and_no_false_alerts
+      - tests/test_drift.py::test_rename_raises_one_alert_and_resolution_waits_for_a_confirmed_mapping
+      - tests/test_publish.py::test_open_drift_alerts_refuse_their_batches_and_nothing_else
+  - case: Mid-project new required field
+    expected: Absorbed by dictionary + rule; exceptions queued for historical rows lacking it
+    tests:
+      - tests/test_field_dictionary.py::test_change_request_exceptions_match_the_raw_extract_exactly
+      - tests/test_field_dictionary.py::test_v012_queues_history_as_not_covered_warnings_never_blocks_or_drops_it
+      - tests/test_field_dictionary.py::test_publish_holds_required_lines_and_keeps_not_covered_history
+  - case: Analyst tries to confirm a mapping
+    expected: 403; only owner can confirm
+    tests:
+      - tests/failure_cases/test_mapping_failure_cases.py::test_only_owner_can_confirm_or_reject
+      - tests/failure_cases/test_exception_permissions.py::test_only_owner_resolves
+
+addendum:
+  - case: Agent proposes a correct but forbidden auto-fix
+    expected: Policy gate rejects in code; the fix goes to a person as a proposal
+    tests:
+      - tests/test_policy_gate.py::test_adversarial_fixes_are_blocked_and_kept_as_human_proposals
+      - tests/test_agent_graph.py::test_a_right_but_forbidden_fix_goes_to_a_person_and_approval_never_touches_silver
+  - case: Agent cannot conclude
+    expected: At most 6 tool calls; one retry of an unevidenced classification, then an explicit escalation
+    tests:
+      - tests/test_agent_graph.py::test_the_loop_stops_at_six_tool_calls_and_must_classify
+      - tests/test_agent_graph.py::test_uncited_evidence_is_retried_once_then_the_run_says_it_could_not_conclude
+  - case: Anything applied without an owner
+    expected: Every run stops before apply; only an owner's decision resumes it, from Postgres, in any process
+    tests:
+      - tests/test_agent_graph.py::test_run_investigates_classifies_and_stops_before_apply_then_a_fresh_process_resumes
+      - tests/test_agent_graph.py::test_api_roles_start_read_and_owner_only_decision
+  - case: Restricted document requested by an unauthorised asker
+    expected: Filtered before the model; "exists but not available at your access level"; never quoted
+    tests:
+      - tests/test_retrieval.py::test_no_mode_ever_returns_a_chunk_the_asker_may_not_see
+      - tests/test_answer.py::test_access_gate_says_the_information_exists_without_showing_it
+      - tests/test_answer.py::test_two_invalid_answers_refuse_as_ungrounded_and_access_refusals_skip_the_model
+  - case: Answer not in the knowledge base
+    expected: Refuse explicitly; citations must be retrieved excerpts; invalid answers refused as ungrounded
+    tests:
+      - tests/test_answer.py::test_answer_passes_only_permitted_excerpts_and_checks_citations
+      - tests/test_answer.py::test_similarity_floor_only_stops_unrelated_queries
+  - case: Superseded document retrieved beside the current one
+    expected: Excluded unless the question names a version; expired kept but labelled
+    tests:
+      - tests/test_answer.py::test_superseded_versions_are_excluded_unless_the_question_names_a_version
+      - tests/test_answer.py::test_expired_documents_stay_retrievable_and_are_labelled

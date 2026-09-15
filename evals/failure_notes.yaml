@@ -1,0 +1,32 @@
+# Failure analysis notes for evals/REPORT.md (docs/plan.md §2.5: "for every missed fault or wrong mapping, one
+# line — what happened, why, what changed"). `match` is a regex over a miss id from evals/run_evals.py. A miss
+# with no matching note is reported as "not yet analysed"; add a note only once the cause is understood, and say
+# honestly when nothing has changed.
+notes:
+  - match: "^exceptions:unexplained:V006:"
+    why: "Genuine lots shipped after expiry in the generator's clean data; not seeded faults, so the answer key calls them false positives (D-018)."
+    changed: "Nothing: the rule is right and the rows are real findings; row precision is reported with them."
+  - match: "^mapping:heuristic:mapping_unseen_headers:"
+    why: "The heuristic's vocabulary was written against the answer-key headers; generic ERP names (SalesDocument, SoldToParty…) share no name tokens with the canonical columns (D-013)."
+    changed: "The LLM-assisted mapper was added (D-014): 100% on the same unseen headers; the heuristic stays the fallback and the baseline."
+  - match: "^rag:governed:Q090$"
+    why: "C10 long document: the one sentence answering it sits in MD-001 §4 among OTIF definitions; embeddings rank other weight-related chunks above it (D-027)."
+    changed: "Nothing yet: reported as the open C10 retrieval miss; it also causes the answer over-refusal on Q090."
+  - match: "^rag:governed:(Q008|Q082|Q086)$"
+    why: "Prior-resolution chunks on the same topic crowd the expected document out of the top 6 (D-027, D-028)."
+    changed: "The agent's knowledge-base tool now filters to documents before choosing (D-029); question answering still ranks both — open."
+  - match: "^rag:governed:(Q022|Q081)$"
+    why: "Synthesis questions need two documents; the second ranks just below the top 6 (D-027)."
+    changed: "Declared precedence brings MEMO-2025-11 and SRC-PLT02-001 together (D-028); Q081 still misses SOP-OPS-001 at k=6, though its answer is correct."
+  - match: "^answers:Q060$"
+    why: "The model wrote \"on‑time\" with a non-breaking hyphen where the key requires \"on time\"; the answer is otherwise right (D-028)."
+    changed: "Nothing: matching normalises Unicode spacing only, not hyphenation, so the key is not loosened after the fact."
+  - match: "^answers:Q090$"
+    why: "Over-refusal caused by the retrieval miss above: MD-001 §4 was not in the excerpts, so the model correctly said the answer was not in context."
+    changed: "Nothing yet; fixing retrieval for Q090 fixes this answer."
+  - match: "^agent:V001_(customer|qty)_blank$"
+    why: "Blank customer/quantity answered needs_master_data; the expected source_defect is this repo's own label (SOP-DQ-001-v2), with no prior resolution for the pattern — the only V001 resolutions say confirmed-date blank → needs_master_data, which the agent generalises (D-030)."
+    changed: "Nothing: the label is kept rather than tuned to the agent; adding a prior resolution or SOP line for blank required fields is the open option."
+  - match: "^agent:V001_item_blank$"
+    why: "One run fell back: no valid, evidenced classification after one retry, so it escalated with confidence 0 as designed (D-030)."
+    changed: "Nothing: fallback is the intended behaviour; counted as a miss."

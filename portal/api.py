@@ -96,3 +96,7 @@ class Api:
 
     def reconciliation(self) -> Reply:
         return self._call("GET", "/reconcile/latest")
+
+    def ops_summary(self, days: int = 7) -> Reply:
+        return self._call("GET", "/ops/summary", params={"days": days})
+
