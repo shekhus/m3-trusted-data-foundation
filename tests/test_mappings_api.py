@@ -24,7 +24,8 @@ def client(pg_url: str) -> Iterator[TestClient]:
     if not (DATA / "sources").is_dir():
         pytest.skip("data/ not generated (run `make synth`)")
     migrate(pg_url)
-    settings = Settings(database_url=pg_url, api_keys={v: k for k, v in KEYS.items()}, data_dir=DATA)
+    settings = Settings(database_url=pg_url, llm_provider="none", api_keys={v: k for k, v in KEYS.items()},
+                        data_dir=DATA)
     app.dependency_overrides[get_settings] = lambda: settings
     try:
         yield TestClient(app)
@@ -35,7 +36,7 @@ def client(pg_url: str) -> Iterator[TestClient]:
 def _propose(client: TestClient, source: str = "plt02") -> list[dict]:
     response = client.post(f"/sources/{source}/mappings/propose", headers=headers("analyst"))
     assert response.status_code == 200, response.text
-    return response.json()
+    return response.json()["versions"]
 
 
 def test_propose_stores_one_version_per_header_variant(client: TestClient) -> None:

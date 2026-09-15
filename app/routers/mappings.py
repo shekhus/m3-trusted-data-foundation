@@ -14,8 +14,9 @@ from sqlalchemy import Connection, Engine, text
 from app.auth import Principal, require
 from app.config import Settings, get_settings
 from app.db import get_engine
+from llm.client import DbRecorder, LLMClient, build_client
+from pipeline.mapper import llm as llm_mapper
 from pipeline.mapper.contract import ColumnMapping, MappingProposal
-from pipeline.mapper.heuristic import propose_all
 from pipeline.profile import discover_sources, profile_source_cached
 
 router = APIRouter(tags=["mappings"])
@@ -40,6 +41,18 @@ class MappingVersion(BaseModel):
     confirmed_at: datetime | None
     rejected_by: str | None
     rejected_at: datetime | None
+
+
+class LLMStatus(BaseModel):
+    header_hash: str
+    used_llm: bool
+    needs_review: bool
+    notes: list[str]
+
+
+class ProposeResult(BaseModel):
+    versions: list[MappingVersion]
+    llm: list[LLMStatus]
 
 
 class HumanMapping(BaseModel):
@@ -89,15 +102,42 @@ def _known_source(settings: Settings, source: str) -> list:
     return files
 
 
-@router.post("/sources/{source}/mappings/propose", response_model=list[MappingVersion])
+def get_llm_client(settings: Annotated[Settings, Depends(get_settings)],
+                   engine: Annotated[Engine, Depends(get_engine)]) -> LLMClient | None:
+    return build_client(settings, DbRecorder(engine))
+
+
+def _confirmed_elsewhere(conn: Connection, source: str) -> list[MappingProposal]:
+    sql = f"{SELECT} WHERE status = 'confirmed' AND source <> :s ORDER BY source, version"
+    rows = conn.execute(text(sql),
+                        {"s": source}).all()
+    return [MappingProposal(source=r.source, header=r.header, proposed_by=r.proposed_by,
+                            columns=r.mapping["columns"]) for r in rows]
+
+
+@router.post("/sources/{source}/mappings/propose", response_model=ProposeResult)
 def propose(source: str, _: Annotated[Principal, Proposer],
             settings: Annotated[Settings, Depends(get_settings)],
-            engine: Annotated[Engine, Depends(get_engine)]) -> list[MappingVersion]:
-    """Profile the source and store a heuristic proposal for each header variant found in its files."""
+            engine: Annotated[Engine, Depends(get_engine)],
+            client: Annotated[LLMClient | None, Depends(get_llm_client)]) -> ProposeResult:
+    """Profile the source; for each header variant store the heuristic proposal and, when the LLM is enabled
+    and returns a valid answer, the LLM proposal as a separate version. Nothing is confirmed here."""
     files = _known_source(settings, source)
     profile = profile_source_cached(source, files, settings.data_dir / "master")
-    with engine.begin() as conn:
-        return [_store(conn, p) for p in propose_all(profile)]
+    with engine.connect() as conn:
+        examples = _confirmed_elsewhere(conn, source)
+    versions: list[MappingVersion] = []
+    statuses: list[LLMStatus] = []
+    for variant in profile.header_variants:
+        # the LLM call happens outside any database transaction
+        result = llm_mapper.propose(profile, variant.columns, client, examples)
+        with engine.begin() as conn:
+            if result.used_llm:
+                versions.append(_store(conn, result.heuristic))
+            versions.append(_store(conn, result.proposal))
+        statuses.append(LLMStatus(header_hash=result.proposal.header_hash, used_llm=result.used_llm,
+                                  needs_review=result.needs_review, notes=result.notes))
+    return ProposeResult(versions=versions, llm=statuses)
 
 
 @router.post("/sources/{source}/mappings", response_model=MappingVersion, status_code=status.HTTP_201_CREATED)

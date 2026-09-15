@@ -27,7 +27,7 @@ def client(pg_url: str) -> Iterator[TestClient]:
     if not (DATA / "sources").is_dir():
         pytest.skip("data/ not generated (run `make synth`)")
     migrate(pg_url)
-    settings = Settings(database_url=pg_url, api_keys=KEYS, data_dir=DATA)
+    settings = Settings(database_url=pg_url, llm_provider="none", api_keys=KEYS, data_dir=DATA)
     app.dependency_overrides[get_settings] = lambda: settings
     try:
         yield TestClient(app)
@@ -38,7 +38,8 @@ def client(pg_url: str) -> Iterator[TestClient]:
 @pytest.mark.postgres
 @pytest.mark.parametrize("key", ["k-analyst", "k-viewer"])
 def test_only_owner_can_confirm_or_reject(client: TestClient, key: str) -> None:
-    proposal = client.post("/sources/plt01/mappings/propose", headers={"X-API-Key": "k-analyst"}).json()[0]
+    proposed = client.post("/sources/plt01/mappings/propose", headers={"X-API-Key": "k-analyst"})
+    proposal = proposed.json()["versions"][0]
     for action in ("confirm", "reject"):
         url = f"/mappings/{proposal['mapping_version_id']}/{action}"
         response = client.post(url, headers={"X-API-Key": key})
