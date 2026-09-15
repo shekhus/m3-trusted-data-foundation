@@ -1,4 +1,4 @@
-.PHONY: synth probe profile metrics eval-mapping silver ingest eval-exceptions eval-drift reconcile revalidate eval-change-request index eval-rag portal name-check up down logs migrate api test lint
+.PHONY: synth probe profile metrics eval-mapping silver ingest eval-exceptions eval-drift reconcile revalidate eval-change-request index eval-rag eval-answers portal name-check up down logs migrate api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
@@ -44,6 +44,9 @@ index:                ## chunk data/kb/, sync retrieval.chunks, embed changed ch
 
 eval-rag:             ## retrieval per challenge (C1-C10) vs the TF-IDF floor; exposures as a count
 	$(PY) scripts/eval_rag.py
+
+eval-answers:         ## retrieval + grounded answers (Groq) for the 53 questions; verdicts and leaks per challenge
+	$(PY) scripts/eval_rag.py --answers --pace 8
 
 portal:               ## Streamlit mapping console on http://localhost:8501 (needs the API running)
 	$(PY) -m streamlit run portal/app.py

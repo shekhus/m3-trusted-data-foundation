@@ -2,16 +2,13 @@ from __future__ import annotations
 
 import json
 import shutil
-import uuid
-from collections.abc import Iterator
 from pathlib import Path
 
 import httpx
 import pytest
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, text
 
 from app.config import REPO_ROOT
-from db.migrate import migrate
 from evals.rag_eval import access_for, load_questions, score
 from llm.client import MemoryRecorder
 from llm.embeddings import EmbeddingError, HashingEmbedder, VoyageEmbedder
@@ -155,25 +152,6 @@ def test_voyage_embedder_rejects_vectors_of_the_wrong_size() -> None:
 # --- the index in Postgres (offline hashing embedder; never reported) -----------------------
 
 
-@pytest.fixture(scope="module")
-def kb_db(pg_admin: Engine) -> Iterator[Engine]:
-    if not (KB / "docs").is_dir():
-        pytest.skip("data/ not generated (run `make synth`)")
-    name = f"m3tdf_test_{uuid.uuid4().hex[:12]}"
-    with pg_admin.connect() as conn:
-        conn.execute(text(f'CREATE DATABASE "{name}"'))
-    url = pg_admin.url.set(database=name).render_as_string(hide_password=False)
-    engine = create_engine(url)
-    try:
-        migrate(url)
-        sync(engine, KB, HashingEmbedder())
-        yield engine
-    finally:
-        engine.dispose()
-        with pg_admin.connect() as conn:
-            conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
-
-
 @pytest.mark.postgres
 def test_sync_embeds_only_what_changed(kb_db: Engine, tmp_path: Path) -> None:
     embedder = HashingEmbedder()
@@ -236,7 +214,7 @@ def test_eval_reports_per_challenge_with_zero_exposures_and_shows_what_the_filte
     kb_db: Engine,
 ) -> None:
     result = score(kb_db, DATA, HashingEmbedder())
-    assert result.modes == ["tfidf", "bm25", "vector", "hybrid"]
+    assert result.modes == ["tfidf", "bm25", "vector", "hybrid", "governed"]
     assert {c.challenge for c in result.challenges} == {f"C{i}" for i in range(1, 11)}
     assert sum(c.questions for c in result.challenges if c.mode == "tfidf") == 53
     assert all(result.exposures(m) == 0 for m in result.modes)

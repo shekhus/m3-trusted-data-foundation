@@ -159,3 +159,26 @@ def generator_gold(pg_admin: Engine) -> Iterator[Engine]:
         engine.dispose()
         with pg_admin.connect() as conn:
             conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+
+
+@pytest.fixture(scope="session")
+def kb_db(pg_admin: Engine) -> Iterator[Engine]:
+    """A migrated database holding the knowledge-base index, embedded offline with HashingEmbedder."""
+    from llm.embeddings import HashingEmbedder
+    from retrieval.store import sync
+
+    if not (REPO_ROOT / "data" / "kb" / "docs").is_dir():
+        pytest.skip("data/ not generated (run `make synth`)")
+    name = f"m3tdf_test_{uuid.uuid4().hex[:12]}"
+    with pg_admin.connect() as conn:
+        conn.execute(text(f'CREATE DATABASE "{name}"'))
+    url = pg_admin.url.set(database=name).render_as_string(hide_password=False)
+    engine = create_engine(url)
+    try:
+        migrate(url)
+        sync(engine, REPO_ROOT / "data" / "kb", HashingEmbedder())
+        yield engine
+    finally:
+        engine.dispose()
+        with pg_admin.connect() as conn:
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))

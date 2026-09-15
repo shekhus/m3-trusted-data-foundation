@@ -24,9 +24,12 @@ from sqlalchemy import Engine
 
 from llm.embeddings import Embedder
 from retrieval.access import AccessContext
-from retrieval.hybrid import MODES, TOP_K, Mode, search
+from retrieval.hybrid import MODES, TOP_K, search
+from retrieval.precedence import retrieve
 
 CHALLENGES = [f"C{i}" for i in range(1, 11)]
+# governed = hybrid + version/status precedence (A17): what answers are generated from
+EVAL_MODES: tuple[str, ...] = (*MODES, "governed")
 
 
 @dataclass
@@ -136,10 +139,10 @@ def score(
     data_dir: Path,
     embedder: Embedder | None,
     k: int = TOP_K,
-    modes: tuple[Mode, ...] | None = None,
+    modes: tuple[str, ...] | None = None,
 ) -> RagScore:
     questions = load_questions(data_dir)
-    modes = modes or tuple(m for m in MODES if embedder is not None or m in ("tfidf", "bm25"))
+    modes = modes or tuple(m for m in EVAL_MODES if embedder is not None or m in ("tfidf", "bm25"))
     doc_access = _document_access(data_dir)
     results: list[QuestionResult] = []
     over_total = 0
@@ -148,7 +151,10 @@ def score(
         over = sorted(d for d in q["expected_doc_ids"] if not access.permits(*doc_access[d]))
         over_total += len(over)
         for mode in modes:
-            hits = search(engine, q["question"], access, mode, embedder, k)
+            if mode == "governed":
+                hits = retrieve(engine, q["question"], access, embedder, k).hits
+            else:
+                hits = search(engine, q["question"], access, mode, embedder, k)  # type: ignore[arg-type]
             docs = list(dict.fromkeys(h.chunk.doc_id for h in hits))
             results.append(_score(q, mode, docs, "\n".join(h.chunk.text for h in hits).lower(), over))
     unfiltered = 0
@@ -177,7 +183,9 @@ def score(
                     exposures=sum(r.exposure for r in rows),
                 )
             )
-    notes = [] if embedder is not None else ["no embedder configured: vector and hybrid modes not run"]
+    notes = (
+        [] if embedder is not None else ["no embedder configured: vector, hybrid and governed modes not run"]
+    )
     return RagScore(k, list(modes), challenges, results, unfiltered, over_total, notes)
 
 

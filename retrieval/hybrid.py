@@ -7,6 +7,7 @@ in SQL before any scoring. Version/status precedence (A17) and the refusal gate 
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -29,6 +30,15 @@ class Hit:
     chunk: Chunk
     score: float
     ranks: dict[str, int] = field(default_factory=dict)  # 1-based rank in each contributing list
+    notes: tuple[str, ...] = ()  # status and precedence labels shown to the model with the chunk (A17)
+
+
+@dataclass(frozen=True)
+class Ranking:
+    """Every permitted candidate, best first, with the best vector similarity (None without an embedder)."""
+
+    hits: list[Hit]
+    top_similarity: float | None
 
 
 class RetrievalError(RuntimeError):
@@ -61,14 +71,26 @@ def search(
     mode: Mode = "hybrid",
     embedder: Embedder | None = None,
     k: int = TOP_K,
+    statuses: Sequence[str] | None = None,
 ) -> list[Hit]:
+    return rank(engine, query, access, mode, embedder, statuses).hits[:k]
+
+
+def rank(
+    engine: Engine,
+    query: str,
+    access: AccessContext | None,
+    mode: Mode = "hybrid",
+    embedder: Embedder | None = None,
+    statuses: Sequence[str] | None = None,
+) -> Ranking:
     if mode in ("vector", "hybrid") and embedder is None:
         raise RetrievalError(f"mode {mode} needs an embedder (EMBEDDING_PROVIDER=voyage)")
     with engine.connect() as conn:
-        pool = candidates(conn, access)
+        pool = candidates(conn, access, statuses)
     by_id = {c.chunk_id: c for c in pool}
     if not pool:
-        return []
+        return Ranking([], None)
     lists: dict[str, list[tuple[str, float]]] = {}
     if mode == "tfidf":
         lists["tfidf"] = _lexical(TfIdf([c.text for c in pool]), pool, query)
@@ -78,14 +100,15 @@ def search(
         assert embedder is not None
         literal = query_vector(engine, embedder, query)
         with engine.connect() as conn:
-            lists["vector"] = vector_ranking(conn, access, embedder, literal)
+            lists["vector"] = vector_ranking(conn, access, embedder, literal, statuses)
         if len(lists["vector"]) < len(pool):
             raise RetrievalError(
                 f"{len(pool) - len(lists['vector'])} permitted chunks have no {embedder.model} "
                 "embedding; run `make index`"
             )
+    top = lists["vector"][0][1] if lists.get("vector") else None
     if mode == "hybrid":
         fused = rrf({name: [cid for cid, _ in ranked] for name, ranked in lists.items()})
-        return [Hit(by_id[cid], score, r) for cid, score, r in fused[:k]]
+        return Ranking([Hit(by_id[cid], score, r) for cid, score, r in fused], top)
     ((name, ranked),) = lists.items()
-    return [Hit(by_id[cid], score, {name: i}) for i, (cid, score) in enumerate(ranked[:k], start=1)]
+    return Ranking([Hit(by_id[cid], score, {name: i}) for i, (cid, score) in enumerate(ranked, start=1)], top)

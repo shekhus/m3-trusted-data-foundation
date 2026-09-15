@@ -1,0 +1,15 @@
+# Precedence declared by a document over another on a topic (docs/addendum1.md A17, D-028).
+# The knowledge base states these in prose, not frontmatter, so they are recorded here. Every entry is verified
+# against the corpus by tests/test_answer.py: the winner must contain `evidence` and must name the loser (by id
+# or by `loser_named_as`). Version supersession needs no entry: it comes from the supersedes/superseded_by
+# frontmatter.
+#
+# `terms` define the overlap: when a retrieved chunk of either document mentions one of them, both documents
+# are shown together, the winner labelled as prevailing and the loser as overridden on that topic.
+rules:
+  - winner: MEMO-2025-11
+    loser: SRC-PLT02-001
+    topic: Hastings weight units
+    evidence: "this memo takes precedence"  # compared with whitespace and markdown emphasis collapsed
+    loser_named_as: SRC-PLT02-001
+    terms: [weight, WT_ORD_KG, WT_SHIP_KG, kilogram, kilograms, pounds, "_KG"]

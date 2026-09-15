@@ -222,3 +222,37 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
     - Resolution chunks crowd documents out of the top 6 (Q008, Q082, Q086, Q090).
   - **Tests (`tests/test_retrieval.py`):** the SQL filter equals the Python rules for every role; no mode returns a non-permitted chunk for any of the 53 askers at k=20; sync re-embeds only changed text and removes deleted chunks; the Voyage client's request shape, 429 wait, error and size checks run against a mock transport; RRF arithmetic is checked.
 
+### D-028 · 2026-09-15 · Precedence: superseded excluded unless a version is named, expired kept but labelled, declared precedence from a verified registry; refusal: access gate before the model, low floor, explicit instruction
+
+- **Decision:**
+  - **A17 (`retrieval/precedence.py`):**
+    - Superseded chunks are excluded in SQL unless the question names a version (`version 1.0`, `v1`), in which case they come back labelled `SUPERSEDED by …`.
+    - Expired chunks stay retrievable, always labelled `EXPIRED … describes that past period only`.
+    - Declared precedence lives in `retrieval/precedence.yaml` (MEMO-2025-11 over SRC-PLT02-001 on Hastings weight units), because the corpus states it only in prose. A test checks each entry against the winning document's own text. When a retrieved chunk of either document touches the overlap terms, the other document's best overlapping chunk is brought in, from permitted candidates only, and both are labelled `TAKES PRECEDENCE` / `OVERRIDDEN`.
+  - **A18 (`retrieval/refusal.py`, `retrieval/answer.py`):**
+    1. **Access gate.** If the single nearest chunk in the whole index (vector, in SQL; only its access level and plant are read) is not permitted, return POL-ACC-001's prescribed "exists but not available at your access level". The model is not called.
+    2. **Similarity floor of 0.10.** It only stops queries unrelated to the corpus.
+    3. **One structured LLM call.** The system prompt is `llm/prompts/kb_answer_system.md`, whose rule 1 is "if the answer is not in the excerpts, say so", with rules for labels and conflicts. The contract requires citations to be retrieved chunk ids and at least one citation for an answer. An invalid answer is retried once, then refused as ungrounded.
+  - **Evals:**
+    - `evals/rag_eval.py` gains a `governed` retrieval mode (hybrid + A17).
+    - `evals/answer_eval.py` gives one verdict per question per the answer key's scoring (correct, wrong_answer, over_refusal, correct_refusal, answered_unanswerable, leak), with leaks as an absolute count. Terms are matched after NFKC normalisation, and `--rescore` re-applies verdicts to saved answers without model calls.
+    - Targets are `make eval-rag` and `make eval-answers`.
+- **Alternatives:**
+  - Excluding expired documents too (CLAUDE.md's literal default): Q040 must answer that the suppression *expired* and Q041 is historical, so both golden questions would become unanswerable. The addendum classifies C4 as a scoping problem, not a retrieval one.
+  - Parsing precedence from prose ("takes precedence over the source note" does not name its target).
+  - A higher similarity floor: measured on the golden set, the weakest answerable question (Q060, 0.152) scores below every unanswerable one (0.209–0.509), so any floor that refuses one of them also refuses a real question. That confirms the probe, and the instruction does that work.
+  - Letting the model phrase access refusals: the restricted text would have to be withheld while the model is still asked about it, and a model can paraphrase what it infers.
+  - Hyphen-insensitive term matching: that would change what the key asks for.
+- **Reason:** addendum A17/A18 and CLAUDE.md principles 9–10.
+  - **Access signal calibration:** the nearest chunk overall is non-permitted for all 4 unauthorised questions and for none of the other 49.
+  - **Retrieval (top-6):** governed doc recall 87% (hybrid 85%, TF-IDF floor 74%). Forbidden documents retrieved fall from 9 to 6, because C1's superseded SOP is gone. C2 doc recall is 75%, against 50% for hybrid.
+  - **Answers (Groq gpt-oss-120b, 45 model calls; one DNS error absorbed by the retry):** 51/53 good (96%), **0 leaks**:
+    - C1–C5, C7, C8, C9 all 100%, including all 4 access refusals and 5/5 unanswerable refusals.
+    - Q081 answers "no escalation, announced shutdown", Q082 answers "not covered, not a compliance failure", and Q022 names the memo as prevailing.
+    - First scoring gave 49/53: Q006 and Q080 were correct but written with U+202F narrow no-break spaces ("Tier 2"), which NFKC normalisation fixes, and they were re-scored from the saved answers.
+  - **Remaining failures:**
+    - Q060: "on‑time" hyphenated where the key requires "on time"; left failing.
+    - Q090: an over-refusal caused by the known C10 retrieval miss (the one sentence in MD-001 §4 is not retrieved), not by the gate.
+  - **Still open in retrieval:** C8 near-duplicate plant profiles, and resolution chunks crowding documents out of the top 6.
+  - **Tests (`tests/test_answer.py`, offline):** the registry is true to the corpus; version opt-in; superseded exclusion and labels; expired labels; precedence pairs labelled and never adding non-permitted chunks; the access gate refuses a plant user and not leadership; a scripted model shows bad citations retried then accepted, two invalid answers refused, access refusals making no model call, and prompts never holding restricted, other-plant or superseded excerpts; verdict rules including NFKC. The full suite passes: 308, 1 skipped.
+

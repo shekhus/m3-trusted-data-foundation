@@ -9,6 +9,7 @@ the database.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -155,9 +156,19 @@ def query_vector(engine: Engine, embedder: Embedder, query: str) -> str:
     return vector_literal(vector)
 
 
-def candidates(conn: Connection, access: AccessContext | None) -> list[Chunk]:
-    """Every chunk the asker may see. `access=None` means unfiltered: evaluation baselines only."""
+def _where(access: AccessContext | None, statuses: Sequence[str] | None) -> tuple[str, dict[str, object]]:
     where, params = access.sql("c") if access is not None else ("true", {})
+    if statuses is not None:
+        where, params = f"{where} AND c.status = ANY(:statuses)", {**params, "statuses": list(statuses)}
+    return where, params
+
+
+def candidates(
+    conn: Connection, access: AccessContext | None, statuses: Sequence[str] | None = None
+) -> list[Chunk]:
+    """Every chunk the asker may see (optionally only these statuses). `access=None` means unfiltered:
+    evaluation baselines only."""
+    where, params = _where(access, statuses)
     rows = (
         conn.execute(
             text(
@@ -174,10 +185,14 @@ def candidates(conn: Connection, access: AccessContext | None) -> list[Chunk]:
 
 
 def vector_ranking(
-    conn: Connection, access: AccessContext | None, embedder: Embedder, query_literal: str
+    conn: Connection,
+    access: AccessContext | None,
+    embedder: Embedder,
+    query_literal: str,
+    statuses: Sequence[str] | None = None,
 ) -> list[tuple[str, float]]:
     """(chunk_id, cosine similarity), best first, over the permitted chunks only; the filter runs in SQL."""
-    where, params = access.sql("c") if access is not None else ("true", {})
+    where, params = _where(access, statuses)
     rows = conn.execute(
         text(
             "SELECT c.chunk_id, 1 - (e.embedding <=> CAST(:q AS vector)) AS similarity "

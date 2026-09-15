@@ -19,6 +19,7 @@ that works in PowerShell, CMD, or Git Bash from the repo root. Add a row here wh
 | `make reconcile` | `.venv\\Scripts\\python scripts/reconcile.py` |
 | `make index` | `.venv\Scripts\python scripts/build_index.py` |
 | `make eval-rag` | `.venv\Scripts\python scripts/eval_rag.py` |
+| `make eval-answers` | `.venv\Scripts\python scripts/eval_rag.py --answers --pace 8` |
 | `make portal` | `.venv\Scripts\python -m streamlit run portal/app.py` (or `make up` for the portal container) |
 | `make name-check` | `.venv\Scripts\python scripts/check_company_name.py` |
 | `make up` | `docker compose up -d --build` |
