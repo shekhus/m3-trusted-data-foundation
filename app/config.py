@@ -23,7 +23,8 @@ def _load_dotenv(env_file: Path = REPO_ROOT / ".env") -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        os.environ[key.strip()] = value.strip()
+        # names are upper-cased: `Voyage_API_Key = ...` in .env still sets VOYAGE_API_KEY on Linux and in CI
+        os.environ[key.strip().upper()] = value.strip().strip("'\"")
 
 
 _load_dotenv()
@@ -50,6 +51,12 @@ class Settings:
     llm_price_in: float = field(default_factory=lambda: float(os.environ.get("LLM_PRICE_IN_PER_MTOK", "0")))
     llm_price_out: float = field(default_factory=lambda: float(os.environ.get("LLM_PRICE_OUT_PER_MTOK", "0")))
     source_sla_hours: int = field(default_factory=lambda: int(os.environ.get("SOURCE_SLA_HOURS", "72")))
+    embedding_provider: str = field(default_factory=lambda: os.environ.get("EMBEDDING_PROVIDER", "voyage"))
+    embedding_model: str = field(default_factory=lambda: os.environ.get("EMBEDDING_MODEL", "voyage-4"))
+    embedding_dimensions: int = field(
+        default_factory=lambda: int(os.environ.get("EMBEDDING_DIMENSIONS", "1024")))
+    embedding_price: float = field(
+        default_factory=lambda: float(os.environ.get("EMBEDDING_PRICE_PER_MTOK", "0")))
 
     @property
     def sources_dir(self) -> Path:

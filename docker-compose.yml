@@ -3,7 +3,7 @@
 
 services:
   db:
-    image: postgres:18-alpine
+    image: pgvector/pgvector:pg18  # Postgres 18 + pgvector for retrieval embeddings (D-027)
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-m3}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-m3}
@@ -30,6 +30,10 @@ services:
       LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-voyage}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-voyage-4}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1024}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
       LLM_PRICE_IN_PER_MTOK: ${LLM_PRICE_IN_PER_MTOK:-0}
       LLM_PRICE_OUT_PER_MTOK: ${LLM_PRICE_OUT_PER_MTOK:-0}
       DATA_DIR: data

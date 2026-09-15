@@ -75,7 +75,7 @@ def test_fresh_database_gets_schemas_and_ops_tables(engine: Engine) -> None:
             "SELECT table_name FROM information_schema.tables WHERE table_schema = 'ops'")).scalars())
         recorded = conn.execute(
             text("SELECT name FROM public.schema_migrations ORDER BY version")).scalars().all()
-    assert {"bronze", "silver", "gold", "ops"} <= schemas
+    assert {"bronze", "silver", "gold", "ops", "retrieval"} <= schemas
     assert ops == OPS_TABLES
     assert recorded == [m.name for m in discover()]
 

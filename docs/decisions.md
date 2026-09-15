@@ -184,3 +184,41 @@ Append-only. Format: **decision** · alternatives considered · reason. Newest a
   - Storing chunks in Postgres now: no consumer needs SQL access yet, and the embedding store is decided in A15.
 - **Reason:** addendum A14 and CLAUDE.md retrieval conventions ("chunk at markdown section level; never split a table from its header row; every chunk carries doc_id, version, status, access_level, plant, effective_date"). **Verified (`tests/test_chunker.py`, real corpus):** 26 documents and 93 resolutions give 208 chunks, and metadata matches its source frontmatter (superseded, expired, plant and restricted cases). Every table piece in every chunk starts with its source header row and separator. No chunk carries the challenge labels. The largest section is 143 words, so no real section needs splitting; the split rules are exercised on constructed documents (40-row table at a 60-word budget: header repeated, every row once, in order). For every golden question with an expected document (30+), all required answer terms sit in one chunk of an expected document. Rebuilding gives byte-identical output, and an edited corpus is refused as stale.
 
+### D-027 · 2026-09-15 · Hybrid retrieval in Postgres + pgvector (Voyage voyage-4), access filtered in SQL before ranking; TF-IDF floor reported beside every mode
+
+- **Decision:**
+  - **Database:** the dev Postgres image is now `pgvector/pgvector:pg18`. It is the same major version, so the data volume carried over after a dump backup and `REINDEX DATABASE`, because the Alpine → Debian switch changes libc collation. Railway will use its pgvector Postgres template at deploy (week 6).
+  - **Schema (migration `0013`):** `retrieval.chunks` holds chunk text plus frontmatter; `retrieval.embeddings` caches vectors by content hash, model, input type and dimensions, for documents and queries alike; `retrieval.index_builds` records each build. There is no ANN index: an exact scan over ~200 vectors is what the eval should measure.
+  - **`make index`** chunks, syncs, and embeds only texts with no vector yet, so an unchanged corpus makes 0 API calls.
+  - **Embeddings (`llm/embeddings.py`):** Voyage REST through httpx (no new SDK), `voyage-4` at 1024 dimensions, `truncation: false`. Every request is logged to `ops.llm_calls`; a 429 is waited out with backoff and anything else raises. An offline `HashingEmbedder` is used by tests only.
+  - **Access (`retrieval/access.py`):** `AccessContext(role, plant)` follows POL-ACC-001 and is applied as a SQL `WHERE` on candidate selection. Lexical statistics are fitted on the permitted set only, so nothing above the asker's level reaches ranking, the prompt or the model:
+    - `all` → every role
+    - `plant` → leadership, or a plant_user of that plant
+    - `restricted` → leadership, data_owner
+    - Prior resolutions are open to every role, because analysts are expected to find them (Q100–Q104).
+  - **Search modes (`retrieval/hybrid.py`):** `tfidf` (the floor; a numpy mirror of the calibration probe), `bm25` (k1 1.5, b 0.75; negations and quantifiers kept out of the stop list), `vector` (cosine in SQL), and `hybrid` (RRF, k=60, of bm25 and vector); top-6 by default.
+  - **Eval (`make eval-rag`):** scores each challenge C1–C10 for every mode, reporting doc recall, content recall (all must_contain terms in the retrieved text, which also scores the resolution questions), forbidden documents retrieved, and exposures as an absolute count. The should-refuse questions are also run unfiltered, and the eval checks whether any expected document is denied to its asker.
+  - **Config:** the .env loader now upper-cases variable names and strips quotes.
+- **Alternatives:**
+  - Files on disk with in-memory vectors: simpler, but the access filter would be Python after loading everything, and dev would not match the deployed database (user decision: pgvector).
+  - The sentence-transformers or fastembed local models (user decision: Voyage API).
+  - Postgres full-text `ts_rank` as the lexical half: not BM25, and not comparable with the probe's floor.
+  - scikit-learn for TF-IDF: not a dependency; a 40-line numpy version matches the probe's settings.
+  - Filtering retrieved chunks after ranking: violates principle 9, and restricted text would still shape lexical statistics.
+- **Reason:** addendum A15/A16 and CLAUDE.md retrieval conventions (TF-IDF baseline kept and reported, lift measured not assumed, per-challenge scoring, leakage as an absolute count). **Measured on the real index (top-6, 53 questions; 2 document calls of 14,383 tokens + 51 query calls of 617 tokens, 0 errors):**
+  - **Doc recall** (expected docs retrieved): TF-IDF 74% → BM25 82% → vector 85% → hybrid 85%.
+  - **Content recall:** 93% / 93% / 95% / 95%.
+  - **Exposures:** 0 in every mode, against 4/4 unfiltered.
+  - **Over-restricted:** 0. C3 doc recall is 100%: the authorised twins get their restricted and plant documents.
+  - **Per challenge (TF-IDF → hybrid):**
+    - C1 80→100%, C6 50→100%, C9 38→62%
+    - C2 50→50%, but content recall 60→100%
+    - C10 100→80%: embeddings lose Q090, one sentence in MD-001 section 4
+    - C3, C4, C7, C8 at 100% in all modes
+  - **Hybrid equals vector in every aggregate cell** even though its ranked lists differ on 44 of 53 questions; reported as measured, not tuned.
+  - **Still failing, for task 19 to address:**
+    - C1: superseded SOP-DQ-001-v1 retrieved beside v2 (3 questions).
+    - C8: near-duplicate plant profiles retrieved together (3 questions).
+    - Resolution chunks crowd documents out of the top 6 (Q008, Q082, Q086, Q090).
+  - **Tests (`tests/test_retrieval.py`):** the SQL filter equals the Python rules for every role; no mode returns a non-permitted chunk for any of the 53 askers at k=20; sync re-embeds only changed text and removes deleted chunks; the Voyage client's request shape, 429 wait, error and size checks run against a mock transport; RRF arithmetic is checked.
+

@@ -1,4 +1,4 @@
-.PHONY: synth probe profile metrics eval-mapping silver ingest eval-exceptions eval-drift reconcile revalidate eval-change-request index portal name-check up down logs migrate api test lint
+.PHONY: synth probe profile metrics eval-mapping silver ingest eval-exceptions eval-drift reconcile revalidate eval-change-request index eval-rag portal name-check up down logs migrate api test lint
 
 # Every target is one line. No-make equivalents: scripts/README.md.
 PY ?= .venv/Scripts/python
@@ -39,8 +39,11 @@ eval-change-request:  ## lot_no change request (V012) scored exactly from the ra
 reconcile:            ## reconciliation job on published gold: consumer views agree, BI tool gaps by cause; scored
 	$(PY) scripts/reconcile.py
 
-index:                ## chunk data/kb/ into the retrieval index at data/index/ (no DB, no API key)
+index:                ## chunk data/kb/, sync retrieval.chunks, embed changed chunks (Voyage)
 	$(PY) scripts/build_index.py
+
+eval-rag:             ## retrieval per challenge (C1-C10) vs the TF-IDF floor; exposures as a count
+	$(PY) scripts/eval_rag.py
 
 portal:               ## Streamlit mapping console on http://localhost:8501 (needs the API running)
 	$(PY) -m streamlit run portal/app.py
