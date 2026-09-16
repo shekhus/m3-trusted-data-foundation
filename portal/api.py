@@ -100,3 +100,10 @@ class Api:
     def ops_summary(self, days: int = 7) -> Reply:
         return self._call("GET", "/ops/summary", params={"days": days})
 
+    def ask(self, question: str, role: str, plant: str | None, k: int = 6) -> Reply:
+        return self._call("POST", "/kb/ask",
+                          json={"question": question, "role": role, "plant": plant, "k": k})
+
+    def kb_documents(self) -> Reply:
+        return self._call("GET", "/kb/documents")
+

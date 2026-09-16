@@ -43,8 +43,9 @@ if not sources_reply.ok:
 sources = [s["source"] for s in sources_reply.data]
 
 st.title("Trusted data foundation — mapping console")
-tab_sources, tab_findings, tab_mappings, tab_batches, tab_exceptions, tab_reconcile, tab_ops = st.tabs(
-    ["Sources & upload", "Findings", "Mappings", "Batches", "Exceptions", "Reconciliation", "Ops"])
+(tab_sources, tab_findings, tab_mappings, tab_batches, tab_exceptions, tab_reconcile, tab_knowledge,
+ tab_ops) = st.tabs(["Sources & upload", "Findings", "Mappings", "Batches", "Exceptions", "Reconciliation",
+                     "Knowledge", "Ops"])
 
 with tab_sources:
     st.dataframe(pd.DataFrame(sources_reply.data), hide_index=True, width="stretch")
@@ -245,6 +246,43 @@ with tab_reconcile:
                     st.dataframe(detail.round(5), hide_index=True, width="stretch")
             st.caption("Contributions are single-switch deltas from governed; they interact and do not "
                        "sum to the gap.")
+
+
+with tab_knowledge:
+    st.caption("Ask the knowledge base (SOPs, source notes, memos, specifications, prior resolutions). The "
+               "asker's access level is applied in SQL before ranking, so restricted material never reaches "
+               "the model; an answer not supported by the excerpts is refused.")
+    left, middle, right = st.columns([2, 1, 1])
+    question = left.text_input("Question", placeholder="How long do I have to resolve a blocking exception?")
+    role = middle.selectbox("Ask as", ["analyst", "plant_user", "leadership", "data_owner"],
+                            help="Only an owner key may ask as leadership or data_owner.")
+    plant = right.selectbox("Plant", ["PLT-01", "PLT-02", "PLT-03"]) if role == "plant_user" else None
+    if st.button("Ask", type="primary", disabled=not question):
+        reply = api.ask(question, role, plant)
+        if not reply.ok:
+            show_error(reply)
+        else:
+            data = reply.data
+            if data["refused"]:
+                st.warning(f"Refused ({data['outcome']}): {data['answer']}")
+            else:
+                st.success(data["answer"])
+            if data["cited_documents"]:
+                st.caption("Cited: " + ", ".join(data["cited_documents"]))
+            excerpts = pd.DataFrame(data["excerpts"])
+            if not excerpts.empty:
+                excerpts["notes"] = excerpts["notes"].map(lambda notes: " ".join(notes))
+                st.caption("Excerpts the model was given (the access filter chose these):")
+                st.dataframe(excerpts, hide_index=True, width="stretch")
+            elif data["outcome"] == "refused_access":
+                st.caption("No excerpt was retrieved or shown: the nearest match is above this access level.")
+    with st.expander("What is in the knowledge base"):
+        docs = api.kb_documents()
+        if not docs.ok:
+            show_error(docs)
+        else:
+            st.caption(f"{docs.data['prior_resolutions']} prior exception resolutions, plus these documents:")
+            st.dataframe(pd.DataFrame(docs.data["documents"]), hide_index=True, width="stretch")
 
 
 with tab_ops:

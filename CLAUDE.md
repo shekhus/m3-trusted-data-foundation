@@ -150,6 +150,6 @@ Windows: run via Git Bash, or use `python scripts/<name>.py` equivalents listed 
 
 See `docs/plan.md` week table and `docs/decisions.md`. Update the line below at the end of each session:
 
-`STATUS: week 6 — tasks 20-23 done. CI green on GitHub Actions (lint, synth, 366 tests vs pgvector, strict deterministic evals) and deploy on green to Railway verified (project m3-trusted-data-foundation): API https://app-production-4016.up.railway.app (healthz 200, auth 401/403, KB indexed with Voyage), portal https://portal-production-6ba2.up.railway.app, pgvector Postgres on a volume. A13 eval 82% (target 85% not met). Next: 24 RUNBOOK.md (sections the ops alerts name), README (six playbook questions), 3-minute demo.`
+`STATUS: week 6 — tasks 20-24 in progress. Task 24: /kb/ask + portal Knowledge tab (D-033), RUNBOOK.md (sections match the ops alerts), README (six playbook questions, measured numbers), docs/RESULTS.md (one-page summary), docs/DEMO.md (3-minute script; Project B is the closing line, not built). CI green; deploy on green to Railway verified. Tests 376 green. Open: A13 accuracy 82% vs 85%; C8/C10 retrieval misses. Remaining: record the demo video; then Project B (weeks 7-10, separate repo).`
 
 Plan is now SIX weeks: weeks 1-4 as originally scoped, week 5 retrieval (A14-A18), week 6 the exception agent (A13). See `docs/addendum1.md`.
